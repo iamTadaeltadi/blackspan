@@ -51,11 +51,37 @@ ctest --test-dir build-asan
 ```sh
 # List the frames in a recording with type, device, sequence, and length.
 blackspan frames recording.bsp
+
+# Reconstructed recorder sessions and any ordering diagnostics.
+blackspan sessions recording.bsp
+
+# Registered channel schemas, and the per-channel sample column stores.
+blackspan schemas recording.bsp
+blackspan channels recording.bsp
+
+# Fault and state-transition timeline with a severity breakdown.
+blackspan faults recording.bsp
+
+# Render the whole reconstructed model as text, JSON, or Graphviz.
+blackspan report recording.bsp --format text|json|dot
+
+# Query the model with a small triage language.
+blackspan query recording.bsp "select samples from channel 1 where raw > 180"
+blackspan query recording.bsp "select faults where severity >= error"
+
+# Summary statistics for one channel field.
+blackspan stats recording.bsp --channel 1 --field 0
+
+# Export a channel to CSV, TSV, or newline-delimited JSON.
+blackspan export recording.bsp --channel 1 --format csv|tsv|ndjson
+
+# Store and inspect recordings in a content-addressed workspace.
+blackspan import unitA recording.bsp --workspace ./ws
+blackspan inspect --workspace ./ws
 ```
 
-Additional commands (session reconstruction, channel decoding, derived-channel
-evaluation, fault timelines, and report rendering) are documented in
-`docs/` and are being brought up on the same decoder core.
+Every command reads the same recording format and runs the same decoder core;
+see `docs/` for the frame grammar, session state model, and architecture.
 
 ## Format and documentation
 
