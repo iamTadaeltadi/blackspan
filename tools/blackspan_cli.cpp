@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "blackspan/anomaly.h"
+#include "blackspan/assemble.h"
 #include "blackspan/channel.h"
 #include "blackspan/export.h"
 #include "blackspan/frame.h"
@@ -271,6 +272,45 @@ int cmd_export(const char* path, int argc, char** argv) {
   return 0;
 }
 
+int cmd_assemble(const char* path, int argc, char** argv) {
+  bool ok = false;
+  std::vector<uint8_t> src = read_file(path, ok);
+  if (!ok) {
+    std::fprintf(stderr, "error: cannot read %s\n", path);
+    return 2;
+  }
+  AssembleResult result =
+      assemble_script(std::string(src.begin(), src.end()));
+  if (!result.ok()) {
+    for (const AssembleDiagnostic& d : result.errors) {
+      std::fprintf(stderr, "%s: %s\n", path,
+                   describe_assemble_diagnostic(d).c_str());
+    }
+    std::fprintf(stderr, "%zu error(s)\n", result.errors.size());
+    return 1;
+  }
+
+  const char* out_path = flag_value(argc, argv, "--out");
+  if (!out_path) {
+    std::fwrite(result.bytes.data(), 1, result.bytes.size(), stdout);
+    return 0;
+  }
+  FILE* f = std::fopen(out_path, "wb");
+  if (!f) {
+    std::fprintf(stderr, "error: cannot write %s\n", out_path);
+    return 2;
+  }
+  size_t written = std::fwrite(result.bytes.data(), 1, result.bytes.size(), f);
+  std::fclose(f);
+  if (written != result.bytes.size()) {
+    std::fprintf(stderr, "error: short write to %s\n", out_path);
+    return 2;
+  }
+  std::fprintf(stderr, "%s: %zu frames, %zu bytes\n", out_path,
+               result.frame_count, result.bytes.size());
+  return 0;
+}
+
 int cmd_import(int argc, char** argv) {
   // blackspan import <name> <file> --workspace <dir>
   if (argc < 4) {
@@ -337,7 +377,8 @@ void usage() {
       "  blackspan export   <recording.bsp> --channel <id> "
       "[--format csv|tsv|ndjson]\n"
       "  blackspan import   <name> <recording.bsp> --workspace <dir>\n"
-      "  blackspan inspect  --workspace <dir>\n");
+      "  blackspan inspect  --workspace <dir>\n"
+      "  blackspan assemble <script.bsr> [--out <recording.bsp>]\n");
 }
 
 }  // namespace
@@ -394,6 +435,10 @@ int main(int argc, char** argv) {
   if (cmd == "export") {
     const char* p = need_file(3);
     return p ? cmd_export(p, argc, argv) : 2;
+  }
+  if (cmd == "assemble") {
+    const char* p = need_file(3);
+    return p ? cmd_assemble(p, argc, argv) : 2;
   }
   if (cmd == "import") return cmd_import(argc, argv);
   if (cmd == "inspect") return cmd_inspect(argc, argv);

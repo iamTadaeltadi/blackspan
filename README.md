@@ -78,10 +78,36 @@ blackspan export recording.bsp --channel 1 --format csv|tsv|ndjson
 # Store and inspect recordings in a content-addressed workspace.
 blackspan import unitA recording.bsp --workspace ./ws
 blackspan inspect --workspace ./ws
+
+# Assemble a recording from a readable script (the inverse of decoding).
+blackspan assemble script.bsr --out recording.bsp
 ```
 
 Every command reads the same recording format and runs the same decoder core;
 see `docs/` for the frame grammar, session state model, and architecture.
+
+## Authoring recordings
+
+Most of the time a recording comes off a device, but for regression fixtures,
+for reproducing a failure reported as a description, and for exercising the
+decoder against a stream of a known shape, `blackspan assemble` builds a
+recording from a line-oriented script. Stream-state directives (`device`,
+`session`, `ts`, `tick`, `flags`) set the frame-header fields that following
+records inherit; record directives (`session-begin`, `schema`, `samples`/`row`/
+`end`, `state`, `fault`, `marker`, and the rest) each emit one frame; and the
+`damage` directive perturbs the most recent frame so a script can produce the
+corrupt recordings a decoder must survive. The grammar is documented in
+`docs/SCRIPT_FORMAT.md`, and the worked examples live under `examples/`:
+
+```sh
+blackspan assemble examples/nominal.bsr --out nominal.bsp
+blackspan report nominal.bsp --format text
+```
+
+The `examples/check.sh` script regenerates every example from its `.bsr` source
+and diffs the decoder output against the checked-in transcripts in
+`examples/expected/`, so the wire format, the decoder, and the documented output
+stay in step.
 
 ## Format and documentation
 
