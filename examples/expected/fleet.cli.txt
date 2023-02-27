@@ -1,0 +1,113 @@
+$ blackspan frames fleet.bsp
+#0 session-begin    dev=00a10001 seq=1 ts=500000 len=17
+#1 schema-def       dev=00a10001 seq=2 ts=500500 len=35
+#2 schema-def       dev=00a10001 seq=3 ts=501000 len=27
+#3 state-transition dev=00a10001 seq=4 ts=501500 len=6
+#4 sample-block     dev=00a10001 seq=5 ts=502000 len=22
+#5 sample-block     dev=00a10001 seq=6 ts=502500 len=20
+#6 session-begin    dev=00a10002 seq=1 ts=500200 len=17
+#7 schema-def       dev=00a10002 seq=2 ts=500700 len=35
+#8 schema-def       dev=00a10002 seq=3 ts=501200 len=36
+#9 state-transition dev=00a10002 seq=4 ts=501700 len=6
+#10 sample-block     dev=00a10002 seq=5 ts=502200 len=22
+#11 session-begin    dev=00a10003 seq=1 ts=500400 len=23
+#12 marker           dev=00a10003 seq=2 ts=500900 len=16
+#13 checkpoint       dev=00a10001 seq=7 ts=510000 len=8
+#14 sample-block     dev=00a10001 seq=8 ts=510500 len=17
+#15 reconnect        dev=00a10001 seq=9 ts=511000 len=8
+#16 sample-block     dev=00a10001 seq=10 ts=511500 len=17
+#17 state-transition dev=00a10001 seq=11 ts=512000 len=6
+#18 session-end      dev=00a10001 seq=12 ts=512500 len=2
+#19 config-change    dev=00a10002 seq=6 ts=520000 len=10
+#20 fault            dev=00a10002 seq=7 ts=520500 len=20
+#21 state-transition dev=00a10002 seq=8 ts=521000 len=6
+#22 session-end      dev=00a10002 seq=9 ts=521500 len=2
+#23 sample-block     dev=00a10003 seq=3 ts=530000 len=17
+#24 marker           dev=00a10003 seq=4 ts=530500 len=22
+25 frames (ok)
+
+$ blackspan sessions fleet.bsp
+device 00a10001 session #0 fw 2.4.11 class 17 epoch 3 "unit-a" seq 1..12 ended reason 0 duration 12500ns (1 checkpoints, 1 reconnects, 0 markers)
+device 00a10002 session #0 fw 2.5.0 class 17 epoch 4 "unit-b" seq 1..9 ended reason 2 duration 21300ns (0 checkpoints, 0 reconnects, 0 markers)
+device 00a10003 session #0 fw 1.9.2 class 19 epoch 2 "unit-c probe" seq 1..4 unterminated duration 0ns (0 checkpoints, 0 reconnects, 2 markers)
+3 sessions, 1 diagnostics
+  diag unterminated-session dev=00a10003 seq=1 session #0 left open at end of stream
+
+$ blackspan schemas fleet.bsp
+channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+channel 2 v2 "bus" (stride 9, 3 fields): volts:f32@0, fault_bits:u32@4, board_c:i8@8
+2 channels defined
+
+$ blackspan channels fleet.bsp
+channel 1 "motor" v1 samples=7 stride=5 blocks=5
+channel 2 "bus" v1 samples=1 stride=8 blocks=1
+2 channels, 8 total samples
+
+$ blackspan faults fleet.bsp
+fault dev=00a10002 seq=7 ts=520500 code=528 sev=error subsystem=1
+1 faults (info=0 warning=0 error=1 critical=0), 4 transitions
+
+$ blackspan report fleet.bsp --format text
+blackspan report
+================
+
+Sessions (3)
+  device 00a10001 session #0 fw 2.4.11 class 17 epoch 3 "unit-a" seq 1..12 ended reason 0 duration 12500ns (1 checkpoints, 1 reconnects, 0 markers)
+  device 00a10002 session #0 fw 2.5.0 class 17 epoch 4 "unit-b" seq 1..9 ended reason 2 duration 21300ns (0 checkpoints, 0 reconnects, 0 markers)
+  device 00a10003 session #0 fw 1.9.2 class 19 epoch 2 "unit-c probe" seq 1..4 unterminated duration 0ns (0 checkpoints, 0 reconnects, 2 markers)
+
+Schemas (2)
+  channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+  channel 2 v2 "bus" (stride 9, 3 fields): volts:f32@0, fault_bits:u32@4, board_c:i8@8
+
+Channels (2)
+  channel 1 v1 "motor" fields 3 stride 5 samples 7 field[0] "rpm" (u16) min 700 max 1020 mean 937.143
+  channel 2 v1 "bus" fields 2 stride 8 samples 1 field[0] "volts" (f32) min 48.4 max 48.4 mean 48.4
+
+Anomalies
+  faults by severity: info 0, warning 0, error 1, critical 0
+  fault timeline (1):
+    device 00a10002 fault code 528 severity error subsystem 1 seq 7 ts 520500 in state 1 (15 detail bytes)
+  state transitions (4):
+    device 00a10001 transition 0 -> 1 cause 1 seq 4 ts 501500
+    device 00a10002 transition 0 -> 1 cause 1 seq 4 ts 501700
+    device 00a10001 transition 1 -> 0 cause 4 seq 11 ts 512000
+    device 00a10002 transition 1 -> 3 cause 9 seq 8 ts 521000
+  config changes (1):
+    device 00a10002 config param 12 100 -> 160 seq 6 ts 520000
+  diagnostics (0):
+  summary: 1 faults, 4 transitions, 1 config changes across 2 devices; severity 0/0/1/0 (info/warning/error/critical); 0 state desyncs; 0 diagnostics
+
+$ blackspan report fleet.bsp --format json
+{"sessions":[{"device_id":10551297,"session_index":0,"fw":{"major":2,"minor":4,"patch":11},"device_class":17,"schema_epoch":3,"label":"unit-a","begin_seq":1,"begin_ts":500000,"end_seq":12,"end_ts":512500,"closed":true,"end_reason":0,"duration_ns":12500,"checkpoints":1,"reconnects":1,"markers":0,"seq_regressions":0,"ts_regressions":0},{"device_id":10551298,"session_index":0,"fw":{"major":2,"minor":5,"patch":0},"device_class":17,"schema_epoch":4,"label":"unit-b","begin_seq":1,"begin_ts":500200,"end_seq":9,"end_ts":521500,"closed":true,"end_reason":2,"duration_ns":21300,"checkpoints":0,"reconnects":0,"markers":0,"seq_regressions":0,"ts_regressions":0},{"device_id":10551299,"session_index":0,"fw":{"major":1,"minor":9,"patch":2},"device_class":19,"schema_epoch":2,"label":"unit-c probe","begin_seq":1,"begin_ts":500400,"end_seq":4,"end_ts":530500,"closed":false,"end_reason":0,"duration_ns":0,"checkpoints":0,"reconnects":0,"markers":2,"seq_regressions":0,"ts_regressions":0}],"schemas":[{"channel_id":1,"version":1,"name":"motor","stride":5,"fields":[{"name":"rpm","type":"u16","offset":0},{"name":"current_ma","type":"i16","offset":2},{"name":"temp_c","type":"i8","offset":4}]},{"channel_id":2,"version":2,"name":"bus","stride":9,"fields":[{"name":"volts","type":"f32","offset":0},{"name":"fault_bits","type":"u32","offset":4},{"name":"board_c","type":"i8","offset":8}]}],"channels":[{"channel_id":1,"version":1,"name":"motor","field_count":3,"stride":5,"samples":7,"stat":{"field":"rpm","type":"u16","count":7,"min":700,"max":1020,"mean":937.143}},{"channel_id":2,"version":1,"name":"bus","field_count":2,"stride":8,"samples":1,"stat":{"field":"volts","type":"f32","count":1,"min":48.4,"max":48.4,"mean":48.4}}],"anomalies":{"fault_counts":{"info":0,"warning":0,"error":1,"critical":0},"faults":[{"device_id":10551298,"session_seq":7,"monotonic_ts":520500,"fault_code":528,"severity":"error","subsystem_id":1,"detail_len":15,"state_at_fault":1}],"transitions":[{"device_id":10551297,"session_seq":4,"monotonic_ts":501500,"from_state":0,"to_state":1,"cause":1,"continues_chain":true},{"device_id":10551298,"session_seq":4,"monotonic_ts":501700,"from_state":0,"to_state":1,"cause":1,"continues_chain":true},{"device_id":10551297,"session_seq":11,"monotonic_ts":512000,"from_state":1,"to_state":0,"cause":4,"continues_chain":true},{"device_id":10551298,"session_seq":8,"monotonic_ts":521000,"from_state":1,"to_state":3,"cause":9,"continues_chain":true}],"config_changes":[{"device_id":10551298,"session_seq":6,"monotonic_ts":520000,"param_id":12,"old_value":100,"new_value":160}],"diagnostics":[]}}
+$ blackspan report fleet.bsp --format dot
+digraph blackspan {
+  rankdir=LR;
+  node [fontname="monospace"];
+  session_0 [shape=box, label="dev 00a10001 #0 unit-a"];
+  session_1 [shape=box, label="dev 00a10002 #0 unit-b"];
+  session_2 [shape=box, label="dev 00a10003 #0 unit-c probe"];
+  channel_1 [shape=ellipse, label="motor v1 (7 samples)"];
+  channel_2 [shape=ellipse, label="bus v1 (1 samples)"];
+  state_0 [shape=circle, label="s0"];
+  state_1 [shape=circle, label="s1"];
+  state_3 [shape=circle, label="s3"];
+  state_0 -> state_1 [label="cause 1"];
+  state_0 -> state_1 [label="cause 1"];
+  state_1 -> state_0 [label="cause 4"];
+  state_1 -> state_3 [label="cause 9"];
+}
+
+$ blackspan query fleet.bsp "select faults"
+faults: 1 rows
+  device=10551298 seq=7 ts=520500 code=528 severity=error subsystem=1
+
+$ blackspan export fleet.bsp --channel 1 --format csv
+index,timestamp,rpm,current_ma,temp_c
+0,502000,900,400,33
+1,502000,950,430,34
+2,502200,1000,500,30
+3,502200,1020,505,31
+4,510500,980,445,35
+5,511500,1010,460,36
+6,530000,700,300,28

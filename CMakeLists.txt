@@ -33,5 +33,10 @@ foreach(test_src ${BLACKSPAN_TESTS})
   get_filename_component(test_name ${test_src} NAME_WE)
   add_executable(${test_name} ${test_src})
   target_link_libraries(${test_name} PRIVATE blackspan_core)
+  # The corpus test reads the checked-in example recordings from the source
+  # tree, so it needs their location at compile time.
+  target_compile_definitions(
+    ${test_name} PRIVATE
+    BLACKSPAN_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples")
   add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()

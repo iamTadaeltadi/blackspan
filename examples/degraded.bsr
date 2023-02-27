@@ -1,0 +1,59 @@
+# degraded.bsr - a recording pulled off a unit that failed in service.
+#
+# Everything a decoder must survive in one file: a stream that opens mid-session
+# (the ring buffer had already wrapped, so the session-begin was overwritten), a
+# state transition that does not continue the known chain, a burst of faults
+# escalating to critical, and a final frame cut short because the unit lost
+# power during the download.
+#
+# Assemble with:  blackspan assemble examples/degraded.bsr --out examples/degraded.bsp
+
+device 0x00B20007
+session 4180
+ts 90000000
+tick 250
+
+# The buffer wrapped: the first record in the file closes a session whose
+# opening record is no longer present.
+session-end reason=7
+
+session-begin class=23 fw=3.1.0 epoch=11 label="unit-b7 field return"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=7 name=coolant fields=inlet_c:f32,outlet_c:f32,flow_lpm:f32
+
+state from=0 to=1 cause=1
+samples channel=1 delta=0
+  row 1400 1100 61
+  row 1420 1180 64
+end
+samples channel=7 delta=0
+  row 41.5 58.25 12.5
+  row 42.0 61.75 11.0
+end
+
+# The recorder missed the transition out of state 1, so this record's from_state
+# does not continue the chain the decoder has reconstructed.
+state from=5 to=6 cause=12
+
+# A burst: four faults inside 900 units of device time, escalating.
+fault code=0x0301 severity=warning subsystem=7 detail="coolant flow low"
+fault code=0x0302 severity=error subsystem=7 detail="outlet over temperature"
+fault code=0x0303 severity=error subsystem=1 detail="derating engaged"
+fault code=0x0310 severity=critical subsystem=1 detail="thermal shutdown"
+
+state from=6 to=9 cause=15
+samples channel=1 delta=0
+  row 300 240 78
+end
+samples channel=7 delta=0
+  row 44.0 79.5 3.25
+end
+
+marker kind=4 text="shutdown latched"
+checkpoint id=97 bytes=65024
+
+# Power was lost mid-frame during the download: the last record is cut short.
+samples channel=7 delta=0
+  row 44.5 81.0 0.0
+end
+damage mode=truncate bytes=9

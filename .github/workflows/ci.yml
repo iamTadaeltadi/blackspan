@@ -16,6 +16,8 @@ jobs:
         run: cmake --build build -j
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Examples regenerate and match expected output
+        run: ./examples/check.sh build/blackspan
 
   sanitizers:
     runs-on: ubuntu-latest

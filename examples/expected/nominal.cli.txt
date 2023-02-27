@@ -1,0 +1,99 @@
+$ blackspan frames nominal.bsp
+#0 session-begin    dev=00a10001 seq=1 ts=1000000 len=29
+#1 schema-def       dev=00a10001 seq=2 ts=1001000 len=35
+#2 schema-def       dev=00a10001 seq=3 ts=1002000 len=27
+#3 state-transition dev=00a10001 seq=4 ts=1003000 len=6
+#4 sample-block     dev=00a10001 seq=5 ts=1004000 len=27
+#5 sample-block     dev=00a10001 seq=6 ts=1005000 len=28
+#6 state-transition dev=00a10001 seq=7 ts=1006000 len=6
+#7 config-change    dev=00a10001 seq=8 ts=1007000 len=10
+#8 marker           dev=00a10001 seq=9 ts=1008000 len=19
+#9 sample-block     dev=00a10001 seq=10 ts=1009000 len=22
+#10 sample-block     dev=00a10001 seq=11 ts=1010000 len=20
+#11 checkpoint       dev=00a10001 seq=12 ts=1011000 len=8
+#12 fault            dev=00a10001 seq=13 ts=1012000 len=29
+#13 sample-block     dev=00a10001 seq=14 ts=1013000 len=17
+#14 state-transition dev=00a10001 seq=15 ts=1014000 len=6
+#15 state-transition dev=00a10001 seq=16 ts=1015000 len=6
+#16 derived-def      dev=00a10001 seq=17 ts=1016000 len=38
+#17 export-request   dev=00a10001 seq=18 ts=1017000 len=3
+#18 session-end      dev=00a10001 seq=19 ts=1018000 len=2
+19 frames (ok)
+
+$ blackspan sessions nominal.bsp
+device 00a10001 session #0 fw 2.4.11 class 17 epoch 3 "drive-a1 bench run" seq 1..19 ended reason 0 duration 18000ns (1 checkpoints, 0 reconnects, 1 markers)
+1 sessions, 0 diagnostics
+
+$ blackspan schemas nominal.bsp
+channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+channel 2 v1 "bus" (stride 8, 2 fields): volts:f32@0, fault_bits:u32@4
+2 channels defined
+
+$ blackspan channels nominal.bsp
+channel 1 "motor" v1 samples=6 stride=5 blocks=3
+channel 2 "bus" v1 samples=3 stride=8 blocks=2
+2 channels, 9 total samples
+
+$ blackspan faults nominal.bsp
+fault dev=00a10001 seq=13 ts=1012000 code=260 sev=warning subsystem=2
+1 faults (info=0 warning=1 error=0 critical=0), 4 transitions
+
+$ blackspan report nominal.bsp --format text
+blackspan report
+================
+
+Sessions (1)
+  device 00a10001 session #0 fw 2.4.11 class 17 epoch 3 "drive-a1 bench run" seq 1..19 ended reason 0 duration 18000ns (1 checkpoints, 0 reconnects, 1 markers)
+
+Schemas (2)
+  channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+  channel 2 v1 "bus" (stride 8, 2 fields): volts:f32@0, fault_bits:u32@4
+
+Channels (2)
+  channel 1 v1 "motor" fields 3 stride 5 samples 6 field[0] "rpm" (u16) min 1180 max 1305 mean 1239.17
+  channel 2 v1 "bus" fields 2 stride 8 samples 3 field[0] "volts" (f32) min 47.9 max 48.2 mean 48.0833
+
+Anomalies
+  faults by severity: info 0, warning 1, error 0, critical 0
+  fault timeline (1):
+    device 00a10001 fault code 260 severity warning subsystem 2 seq 13 ts 1012000 in state 2 (24 detail bytes)
+  state transitions (4):
+    device 00a10001 transition 0 -> 1 cause 1 seq 4 ts 1003000
+    device 00a10001 transition 1 -> 2 cause 2 seq 7 ts 1006000
+    device 00a10001 transition 2 -> 1 cause 3 seq 15 ts 1014000
+    device 00a10001 transition 1 -> 0 cause 4 seq 16 ts 1015000
+  config changes (1):
+    device 00a10001 config param 12 100 -> 140 seq 8 ts 1007000
+  diagnostics (0):
+  summary: 1 faults, 4 transitions, 1 config changes across 1 devices; severity 0/1/0/0 (info/warning/error/critical); 0 state desyncs; 0 diagnostics
+
+$ blackspan report nominal.bsp --format json
+{"sessions":[{"device_id":10551297,"session_index":0,"fw":{"major":2,"minor":4,"patch":11},"device_class":17,"schema_epoch":3,"label":"drive-a1 bench run","begin_seq":1,"begin_ts":1000000,"end_seq":19,"end_ts":1018000,"closed":true,"end_reason":0,"duration_ns":18000,"checkpoints":1,"reconnects":0,"markers":1,"seq_regressions":0,"ts_regressions":0}],"schemas":[{"channel_id":1,"version":1,"name":"motor","stride":5,"fields":[{"name":"rpm","type":"u16","offset":0},{"name":"current_ma","type":"i16","offset":2},{"name":"temp_c","type":"i8","offset":4}]},{"channel_id":2,"version":1,"name":"bus","stride":8,"fields":[{"name":"volts","type":"f32","offset":0},{"name":"fault_bits","type":"u32","offset":4}]}],"channels":[{"channel_id":1,"version":1,"name":"motor","field_count":3,"stride":5,"samples":6,"stat":{"field":"rpm","type":"u16","count":6,"min":1180,"max":1305,"mean":1239.17}},{"channel_id":2,"version":1,"name":"bus","field_count":2,"stride":8,"samples":3,"stat":{"field":"volts","type":"f32","count":3,"min":47.9,"max":48.2,"mean":48.0833}}],"anomalies":{"fault_counts":{"info":0,"warning":1,"error":0,"critical":0},"faults":[{"device_id":10551297,"session_seq":13,"monotonic_ts":1012000,"fault_code":260,"severity":"warning","subsystem_id":2,"detail_len":24,"state_at_fault":2}],"transitions":[{"device_id":10551297,"session_seq":4,"monotonic_ts":1003000,"from_state":0,"to_state":1,"cause":1,"continues_chain":true},{"device_id":10551297,"session_seq":7,"monotonic_ts":1006000,"from_state":1,"to_state":2,"cause":2,"continues_chain":true},{"device_id":10551297,"session_seq":15,"monotonic_ts":1014000,"from_state":2,"to_state":1,"cause":3,"continues_chain":true},{"device_id":10551297,"session_seq":16,"monotonic_ts":1015000,"from_state":1,"to_state":0,"cause":4,"continues_chain":true}],"config_changes":[{"device_id":10551297,"session_seq":8,"monotonic_ts":1007000,"param_id":12,"old_value":100,"new_value":140}],"diagnostics":[]}}
+$ blackspan report nominal.bsp --format dot
+digraph blackspan {
+  rankdir=LR;
+  node [fontname="monospace"];
+  session_0 [shape=box, label="dev 00a10001 #0 drive-a1 bench run"];
+  channel_1 [shape=ellipse, label="motor v1 (6 samples)"];
+  channel_2 [shape=ellipse, label="bus v1 (3 samples)"];
+  state_0 [shape=circle, label="s0"];
+  state_1 [shape=circle, label="s1"];
+  state_2 [shape=circle, label="s2"];
+  state_0 -> state_1 [label="cause 1"];
+  state_1 -> state_2 [label="cause 2"];
+  state_2 -> state_1 [label="cause 3"];
+  state_1 -> state_0 [label="cause 4"];
+}
+
+$ blackspan query nominal.bsp "select faults"
+faults: 1 rows
+  device=10551297 seq=13 ts=1012000 code=260 severity=warning subsystem=2
+
+$ blackspan export nominal.bsp --channel 1 --format csv
+index,timestamp,rpm,current_ma,temp_c
+0,1004000,1200,850,41
+1,1004000,1210,860,41
+2,1004000,1250,910,42
+3,1009000,1290,980,44
+4,1009000,1305,1010,45
+5,1013000,1180,700,45

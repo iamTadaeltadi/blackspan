@@ -1,0 +1,105 @@
+$ blackspan frames degraded.bsp
+#0 session-end      dev=00b20007 seq=4180 ts=90000000 len=2
+#1 session-begin    dev=00b20007 seq=4181 ts=90000250 len=31
+#2 schema-def       dev=00b20007 seq=4182 ts=90000500 len=35
+#3 schema-def       dev=00b20007 seq=4183 ts=90000750 len=41
+#4 state-transition dev=00b20007 seq=4184 ts=90001000 len=6
+#5 sample-block     dev=00b20007 seq=4185 ts=90001250 len=22
+#6 sample-block     dev=00b20007 seq=4186 ts=90001500 len=36
+#7 state-transition dev=00b20007 seq=4187 ts=90001750 len=6
+#8 fault            dev=00b20007 seq=4188 ts=90002000 len=21
+#9 fault            dev=00b20007 seq=4189 ts=90002250 len=28
+#10 fault            dev=00b20007 seq=4190 ts=90002500 len=21
+#11 fault            dev=00b20007 seq=4191 ts=90002750 len=21
+#12 state-transition dev=00b20007 seq=4192 ts=90003000 len=6
+#13 sample-block     dev=00b20007 seq=4193 ts=90003250 len=17
+#14 sample-block     dev=00b20007 seq=4194 ts=90003500 len=24
+#15 marker           dev=00b20007 seq=4195 ts=90003750 len=18
+#16 checkpoint       dev=00b20007 seq=4196 ts=90004000 len=8
+17 frames (incomplete)
+
+$ blackspan sessions degraded.bsp
+device 00b20007 session #0 fw 3.1.0 class 23 epoch 11 "unit-b7 field return" seq 4181..4196 unterminated duration 0ns (1 checkpoints, 0 reconnects, 1 markers)
+1 sessions, 2 diagnostics
+  diag end-without-begin dev=00b20007 seq=4180 session-end with no active session
+  diag unterminated-session dev=00b20007 seq=4181 session #0 left open at end of stream
+
+$ blackspan schemas degraded.bsp
+channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+channel 7 v1 "coolant" (stride 12, 3 fields): inlet_c:f32@0, outlet_c:f32@4, flow_lpm:f32@8
+2 channels defined
+
+$ blackspan channels degraded.bsp
+channel 1 "motor" v1 samples=3 stride=5 blocks=2
+channel 7 "coolant" v1 samples=3 stride=12 blocks=2
+2 channels, 6 total samples
+
+$ blackspan faults degraded.bsp
+fault dev=00b20007 seq=4188 ts=90002000 code=769 sev=warning subsystem=7
+fault dev=00b20007 seq=4189 ts=90002250 code=770 sev=error subsystem=7
+fault dev=00b20007 seq=4190 ts=90002500 code=771 sev=error subsystem=1
+fault dev=00b20007 seq=4191 ts=90002750 code=784 sev=critical subsystem=1
+4 faults (info=0 warning=1 error=2 critical=1), 3 transitions
+
+$ blackspan report degraded.bsp --format text
+blackspan report
+================
+
+Sessions (1)
+  device 00b20007 session #0 fw 3.1.0 class 23 epoch 11 "unit-b7 field return" seq 4181..4196 unterminated duration 0ns (1 checkpoints, 0 reconnects, 1 markers)
+
+Schemas (2)
+  channel 1 v1 "motor" (stride 5, 3 fields): rpm:u16@0, current_ma:i16@2, temp_c:i8@4
+  channel 7 v1 "coolant" (stride 12, 3 fields): inlet_c:f32@0, outlet_c:f32@4, flow_lpm:f32@8
+
+Channels (2)
+  channel 1 v1 "motor" fields 3 stride 5 samples 3 field[0] "rpm" (u16) min 300 max 1420 mean 1040
+  channel 7 v1 "coolant" fields 3 stride 12 samples 3 field[0] "inlet_c" (f32) min 41.5 max 44 mean 42.5
+
+Anomalies
+  faults by severity: info 0, warning 1, error 2, critical 1
+  fault timeline (4):
+    device 00b20007 fault code 769 severity warning subsystem 7 seq 4188 ts 90002000 in state 6 (16 detail bytes)
+    device 00b20007 fault code 770 severity error subsystem 7 seq 4189 ts 90002250 in state 6 (23 detail bytes)
+    device 00b20007 fault code 771 severity error subsystem 1 seq 4190 ts 90002500 in state 6 (16 detail bytes)
+    device 00b20007 fault code 784 severity critical subsystem 1 seq 4191 ts 90002750 in state 6 (16 detail bytes)
+  state transitions (3):
+    device 00b20007 transition 0 -> 1 cause 1 seq 4184 ts 90001000
+    device 00b20007 transition 5 -> 6 cause 12 seq 4187 ts 90001750 (desync)
+    device 00b20007 transition 6 -> 9 cause 15 seq 4192 ts 90003000
+  config changes (0):
+  diagnostics (1):
+    state-desync device 00b20007 seq 4187 transition from_state 5 does not continue last state 1
+  summary: 4 faults, 3 transitions, 0 config changes across 1 devices; severity 0/1/2/1 (info/warning/error/critical); 1 state desyncs; 1 diagnostics
+
+$ blackspan report degraded.bsp --format json
+{"sessions":[{"device_id":11665415,"session_index":0,"fw":{"major":3,"minor":1,"patch":0},"device_class":23,"schema_epoch":11,"label":"unit-b7 field return","begin_seq":4181,"begin_ts":90000250,"end_seq":4196,"end_ts":90004000,"closed":false,"end_reason":0,"duration_ns":0,"checkpoints":1,"reconnects":0,"markers":1,"seq_regressions":0,"ts_regressions":0}],"schemas":[{"channel_id":1,"version":1,"name":"motor","stride":5,"fields":[{"name":"rpm","type":"u16","offset":0},{"name":"current_ma","type":"i16","offset":2},{"name":"temp_c","type":"i8","offset":4}]},{"channel_id":7,"version":1,"name":"coolant","stride":12,"fields":[{"name":"inlet_c","type":"f32","offset":0},{"name":"outlet_c","type":"f32","offset":4},{"name":"flow_lpm","type":"f32","offset":8}]}],"channels":[{"channel_id":1,"version":1,"name":"motor","field_count":3,"stride":5,"samples":3,"stat":{"field":"rpm","type":"u16","count":3,"min":300,"max":1420,"mean":1040}},{"channel_id":7,"version":1,"name":"coolant","field_count":3,"stride":12,"samples":3,"stat":{"field":"inlet_c","type":"f32","count":3,"min":41.5,"max":44,"mean":42.5}}],"anomalies":{"fault_counts":{"info":0,"warning":1,"error":2,"critical":1},"faults":[{"device_id":11665415,"session_seq":4188,"monotonic_ts":90002000,"fault_code":769,"severity":"warning","subsystem_id":7,"detail_len":16,"state_at_fault":6},{"device_id":11665415,"session_seq":4189,"monotonic_ts":90002250,"fault_code":770,"severity":"error","subsystem_id":7,"detail_len":23,"state_at_fault":6},{"device_id":11665415,"session_seq":4190,"monotonic_ts":90002500,"fault_code":771,"severity":"error","subsystem_id":1,"detail_len":16,"state_at_fault":6},{"device_id":11665415,"session_seq":4191,"monotonic_ts":90002750,"fault_code":784,"severity":"critical","subsystem_id":1,"detail_len":16,"state_at_fault":6}],"transitions":[{"device_id":11665415,"session_seq":4184,"monotonic_ts":90001000,"from_state":0,"to_state":1,"cause":1,"continues_chain":true},{"device_id":11665415,"session_seq":4187,"monotonic_ts":90001750,"from_state":5,"to_state":6,"cause":12,"continues_chain":false},{"device_id":11665415,"session_seq":4192,"monotonic_ts":90003000,"from_state":6,"to_state":9,"cause":15,"continues_chain":true}],"config_changes":[],"diagnostics":[{"code":"state-desync","device_id":11665415,"session_seq":4187,"detail":"transition from_state 5 does not continue last state 1"}]}}
+$ blackspan report degraded.bsp --format dot
+digraph blackspan {
+  rankdir=LR;
+  node [fontname="monospace"];
+  session_0 [shape=box, label="dev 00b20007 #0 unit-b7 field return"];
+  channel_1 [shape=ellipse, label="motor v1 (3 samples)"];
+  channel_7 [shape=ellipse, label="coolant v1 (3 samples)"];
+  state_0 [shape=circle, label="s0"];
+  state_1 [shape=circle, label="s1"];
+  state_5 [shape=circle, label="s5"];
+  state_6 [shape=circle, label="s6"];
+  state_9 [shape=circle, label="s9"];
+  state_0 -> state_1 [label="cause 1"];
+  state_5 -> state_6 [label="cause 12", style=dashed, color=red];
+  state_6 -> state_9 [label="cause 15"];
+}
+
+$ blackspan query degraded.bsp "select faults"
+faults: 4 rows
+  device=11665415 seq=4188 ts=90002000 code=769 severity=warning subsystem=7
+  device=11665415 seq=4189 ts=90002250 code=770 severity=error subsystem=7
+  device=11665415 seq=4190 ts=90002500 code=771 severity=error subsystem=1
+  device=11665415 seq=4191 ts=90002750 code=784 severity=critical subsystem=1
+
+$ blackspan export degraded.bsp --channel 1 --format csv
+index,timestamp,rpm,current_ma,temp_c
+0,90001250,1400,1100,61
+1,90001250,1420,1180,64
+2,90003250,300,240,78
