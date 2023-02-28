@@ -16,6 +16,7 @@
 #include "blackspan/schema.h"
 #include "blackspan/session.h"
 #include "blackspan/stats.h"
+#include "blackspan/timeline.h"
 #include "blackspan/workspace.h"
 
 namespace {
@@ -181,6 +182,66 @@ int cmd_report(const char* path, int argc, char** argv) {
   model.channels = &rec.channels();
   model.anomalies = &rec.anomalies();
   std::string out = render(model, fmt);
+  std::fwrite(out.data(), 1, out.size(), stdout);
+  return 0;
+}
+
+// Parses a comma-separated list of timeline-kind names into a mask, or returns
+// false naming the first unrecognized token.
+bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
+  mask = 0;
+  std::string s = spec;
+  size_t start = 0;
+  while (start <= s.size()) {
+    size_t comma = s.find(',', start);
+    std::string tok =
+        s.substr(start, comma == std::string::npos ? std::string::npos
+                                                   : comma - start);
+    if (!tok.empty()) {
+      bool matched = false;
+      for (size_t k = 0; k < kTimelineKindCount; ++k) {
+        TimelineKind kind = static_cast<TimelineKind>(k);
+        if (tok == timeline_kind_name(kind)) {
+          mask |= timeline_kind_bit(kind);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        bad = tok;
+        return false;
+      }
+    }
+    if (comma == std::string::npos) break;
+    start = comma + 1;
+  }
+  if (mask == 0) mask = kTimelineAllKinds;
+  return true;
+}
+
+int cmd_timeline(const char* path, int argc, char** argv) {
+  std::vector<uint8_t> buf;
+  DecodedRecording rec;
+  if (!load_decoded(path, buf, rec)) return 2;
+
+  TimelineOptions opts;
+  const char* dev = flag_value(argc, argv, "--device");
+  if (dev) opts.device = static_cast<uint32_t>(std::strtoul(dev, nullptr, 0));
+  const char* since = flag_value(argc, argv, "--since");
+  if (since) opts.since = std::strtoull(since, nullptr, 0);
+  const char* until = flag_value(argc, argv, "--until");
+  if (until) opts.until = std::strtoull(until, nullptr, 0);
+  const char* kinds = flag_value(argc, argv, "--kinds");
+  if (kinds) {
+    std::string bad;
+    if (!parse_kind_mask(kinds, opts.kind_mask, bad)) {
+      std::fprintf(stderr, "error: unknown timeline kind '%s'\n", bad.c_str());
+      return 2;
+    }
+  }
+
+  Timeline tl = Timeline::build(rec, opts);
+  std::string out = render_timeline(tl);
   std::fwrite(out.data(), 1, out.size(), stdout);
   return 0;
 }
@@ -372,6 +433,8 @@ void usage() {
       "  blackspan channels <recording.bsp>\n"
       "  blackspan faults   <recording.bsp>\n"
       "  blackspan report   <recording.bsp> [--format text|json|dot]\n"
+      "  blackspan timeline <recording.bsp> [--device <id>] [--kinds a,b] "
+      "[--since <ts>] [--until <ts>]\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
@@ -420,6 +483,10 @@ int main(int argc, char** argv) {
   if (cmd == "report") {
     const char* p = need_file(3);
     return p ? cmd_report(p, argc, argv) : 2;
+  }
+  if (cmd == "timeline") {
+    const char* p = need_file(3);
+    return p ? cmd_timeline(p, argc, argv) : 2;
   }
   if (cmd == "query") {
     if (argc < 4) {

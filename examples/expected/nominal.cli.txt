@@ -85,6 +85,24 @@ digraph blackspan {
   state_1 -> state_0 [label="cause 4"];
 }
 
+$ blackspan timeline nominal.bsp
+15 events over ts 1000000..1018000
+  ts=1000000 dev=00a10001 session-begin    session #0 fw 2.4.11 class 17 "drive-a1 bench run"
+  ts=1003000 dev=00a10001 state-transition s0 -> s1 (cause 1)
+  ts=1004000 dev=00000000 sample-block     channel 1 "motor" x3 samples
+  ts=1005000 dev=00000000 sample-block     channel 2 "bus" x2 samples
+  ts=1006000 dev=00a10001 state-transition s1 -> s2 (cause 2)
+  ts=1007000 dev=00a10001 config-change    param 12: 100 -> 140
+  ts=1008000 dev=00a10001 marker           kind 2: load step applied
+  ts=1009000 dev=00000000 sample-block     channel 1 "motor" x2 samples
+  ts=1010000 dev=00000000 sample-block     channel 2 "bus" x1 samples
+  ts=1011000 dev=00a10001 checkpoint       id 1, 8192 bytes since last
+  ts=1012000 dev=00a10001 fault            code 260 warning subsystem 2 (state s2)
+  ts=1013000 dev=00000000 sample-block     channel 1 "motor" x1 samples
+  ts=1014000 dev=00a10001 state-transition s2 -> s1 (cause 3)
+  ts=1015000 dev=00a10001 state-transition s1 -> s0 (cause 4)
+  ts=1018000 dev=00a10001 session-end      reason 0
+
 $ blackspan query nominal.bsp "select faults"
 faults: 1 rows
   device=10551297 seq=13 ts=1012000 code=260 severity=warning subsystem=2

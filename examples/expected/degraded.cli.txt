@@ -91,6 +91,23 @@ digraph blackspan {
   state_6 -> state_9 [label="cause 15"];
 }
 
+$ blackspan timeline degraded.bsp
+14 events over ts 90000250..90004000
+  ts=90000250 dev=00b20007 session-begin    session #0 fw 3.1.0 class 23 "unit-b7 field return"
+  ts=90001000 dev=00b20007 state-transition s0 -> s1 (cause 1)
+  ts=90001250 dev=00000000 sample-block     channel 1 "motor" x2 samples
+  ts=90001500 dev=00000000 sample-block     channel 7 "coolant" x2 samples
+  ts=90001750 dev=00b20007 state-transition s5 -> s6 (cause 12) [desync]
+  ts=90002000 dev=00b20007 fault            code 769 warning subsystem 7 (state s6)
+  ts=90002250 dev=00b20007 fault            code 770 error subsystem 7 (state s6)
+  ts=90002500 dev=00b20007 fault            code 771 error subsystem 1 (state s6)
+  ts=90002750 dev=00b20007 fault            code 784 critical subsystem 1 (state s6)
+  ts=90003000 dev=00b20007 state-transition s6 -> s9 (cause 15)
+  ts=90003250 dev=00000000 sample-block     channel 1 "motor" x1 samples
+  ts=90003500 dev=00000000 sample-block     channel 7 "coolant" x1 samples
+  ts=90003750 dev=00b20007 marker           kind 4: shutdown latched
+  ts=90004000 dev=00b20007 checkpoint       id 97, 65024 bytes since last
+
 $ blackspan query degraded.bsp "select faults"
 faults: 4 rows
   device=11665415 seq=4188 ts=90002000 code=769 severity=warning subsystem=7

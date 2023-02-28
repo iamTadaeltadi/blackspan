@@ -192,7 +192,12 @@ void SessionReconstructor::handle_checkpoint(DeviceState& ds, uint32_t dev,
       decode_checkpoint(f.payload.data(), f.payload.size(), rec);
   track_monotonic(ds, f);
 
-  sessions_[ds.active_index].checkpoints.push_back(rec);
+  CheckpointEvent ev;
+  ev.checkpoint_id = rec.checkpoint_id;
+  ev.bytes_since_last = rec.bytes_since_last;
+  ev.at_seq = f.header.session_seq;
+  ev.at_ts = f.header.monotonic_ts;
+  sessions_[ds.active_index].checkpoints.push_back(ev);
 
   if (ps != PayloadStatus::Ok) {
     diag(SessionDiagCode::TruncatedPayload, dev, f.header.session_seq,
@@ -241,7 +246,12 @@ void SessionReconstructor::handle_marker(DeviceState& ds, uint32_t dev,
       decode_marker(f.payload.data(), f.payload.size(), rec);
   track_monotonic(ds, f);
 
-  sessions_[ds.active_index].markers.push_back(std::move(rec));
+  MarkerEvent ev;
+  ev.marker_kind = rec.marker_kind;
+  ev.text = std::move(rec.text);
+  ev.at_seq = f.header.session_seq;
+  ev.at_ts = f.header.monotonic_ts;
+  sessions_[ds.active_index].markers.push_back(std::move(ev));
 
   if (ps != PayloadStatus::Ok) {
     diag(SessionDiagCode::TruncatedPayload, dev, f.header.session_seq,

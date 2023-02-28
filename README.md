@@ -62,6 +62,9 @@ blackspan channels recording.bsp
 # Fault and state-transition timeline with a severity breakdown.
 blackspan faults recording.bsp
 
+# One merged, time-ordered view of every event across all subsystems.
+blackspan timeline recording.bsp --kinds fault,state-transition --device 0x11
+
 # Render the whole reconstructed model as text, JSON, or Graphviz.
 blackspan report recording.bsp --format text|json|dot
 

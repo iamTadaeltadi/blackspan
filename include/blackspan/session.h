@@ -73,6 +73,25 @@ struct ReconnectEvent {
   uint64_t at_ts = 0;
 };
 
+// A checkpoint as attached to a session: the decoded payload plus the frame
+// position it was recorded at. The wire payload carries no timestamp of its
+// own, so the frame's session_seq / monotonic_ts locate it on the timeline.
+struct CheckpointEvent {
+  uint32_t checkpoint_id = 0;
+  uint32_t bytes_since_last = 0;
+  uint32_t at_seq = 0;
+  uint64_t at_ts = 0;
+};
+
+// A marker as attached to a session: the decoded payload plus the frame
+// position it was recorded at.
+struct MarkerEvent {
+  uint8_t marker_kind = 0;
+  std::string text;
+  uint32_t at_seq = 0;
+  uint64_t at_ts = 0;
+};
+
 // Typed decoders for the payload grammars owned by this subsystem. Each reads
 // little-endian via ByteReader and is robust to truncation.
 PayloadStatus decode_session_begin(const uint8_t* data, size_t len,
@@ -106,9 +125,9 @@ struct Session {
   uint16_t end_reason = 0;  // reason_code from session-end; 0 if unterminated
   bool closed = false;      // true only when ended by a session-end record
 
-  std::vector<Checkpoint> checkpoints;
+  std::vector<CheckpointEvent> checkpoints;
   std::vector<ReconnectEvent> reconnects;
-  std::vector<Marker> markers;
+  std::vector<MarkerEvent> markers;
 
   uint32_t reconnect_count = 0;
   uint32_t seq_regressions = 0;  // frames whose session_seq went backwards

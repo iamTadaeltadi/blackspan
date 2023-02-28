@@ -98,6 +98,30 @@ digraph blackspan {
   state_1 -> state_3 [label="cause 9"];
 }
 
+$ blackspan timeline fleet.bsp
+21 events over ts 500000..530500
+  ts=500000 dev=00a10001 session-begin    session #0 fw 2.4.11 class 17 "unit-a"
+  ts=500200 dev=00a10002 session-begin    session #0 fw 2.5.0 class 17 "unit-b"
+  ts=500400 dev=00a10003 session-begin    session #0 fw 1.9.2 class 19 "unit-c probe"
+  ts=500900 dev=00a10003 marker           kind 1: probe attached
+  ts=501500 dev=00a10001 state-transition s0 -> s1 (cause 1)
+  ts=501700 dev=00a10002 state-transition s0 -> s1 (cause 1)
+  ts=502000 dev=00000000 sample-block     channel 1 "motor" x2 samples
+  ts=502200 dev=00000000 sample-block     channel 1 "motor" x2 samples
+  ts=502500 dev=00000000 sample-block     channel 2 "bus" x1 samples
+  ts=510000 dev=00a10001 checkpoint       id 1, 4096 bytes since last
+  ts=510500 dev=00000000 sample-block     channel 1 "motor" x1 samples
+  ts=511000 dev=00a10001 reconnect        gap 1400 ms, prev seq 8
+  ts=511500 dev=00000000 sample-block     channel 1 "motor" x1 samples
+  ts=512000 dev=00a10001 state-transition s1 -> s0 (cause 4)
+  ts=512500 dev=00a10001 session-end      reason 0
+  ts=520000 dev=00a10002 config-change    param 12: 100 -> 160
+  ts=520500 dev=00a10002 fault            code 528 error subsystem 1 (state s1)
+  ts=521000 dev=00a10002 state-transition s1 -> s3 (cause 9)
+  ts=521500 dev=00a10002 session-end      reason 2
+  ts=530000 dev=00000000 sample-block     channel 1 "motor" x1 samples
+  ts=530500 dev=00a10003 marker           kind 3: download interrupted
+
 $ blackspan query fleet.bsp "select faults"
 faults: 1 rows
   device=10551298 seq=7 ts=520500 code=528 severity=error subsystem=1
