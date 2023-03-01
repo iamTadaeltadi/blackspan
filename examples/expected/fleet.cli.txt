@@ -98,6 +98,11 @@ digraph blackspan {
   state_1 -> state_3 [label="cause 9"];
 }
 
+$ blackspan validate fleet.bsp
+warning [unterminated-session] dev=00a10003 seq=1: session #0 left open at end of stream
+note    [schema-multiple-versions] dev=00000000 seq=0: channel 2 changed layout across 2 versions
+0 error(s), 1 warning(s), 1 note(s)
+
 $ blackspan timeline fleet.bsp
 21 events over ts 500000..530500
   ts=500000 dev=00a10001 session-begin    session #0 fw 2.4.11 class 17 "unit-a"

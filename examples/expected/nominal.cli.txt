@@ -85,6 +85,9 @@ digraph blackspan {
   state_1 -> state_0 [label="cause 4"];
 }
 
+$ blackspan validate nominal.bsp
+ok: no findings
+
 $ blackspan timeline nominal.bsp
 15 events over ts 1000000..1018000
   ts=1000000 dev=00a10001 session-begin    session #0 fw 2.4.11 class 17 "drive-a1 bench run"

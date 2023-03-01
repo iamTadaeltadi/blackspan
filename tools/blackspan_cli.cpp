@@ -17,6 +17,7 @@
 #include "blackspan/session.h"
 #include "blackspan/stats.h"
 #include "blackspan/timeline.h"
+#include "blackspan/validate.h"
 #include "blackspan/workspace.h"
 
 namespace {
@@ -217,6 +218,33 @@ bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
   }
   if (mask == 0) mask = kTimelineAllKinds;
   return true;
+}
+
+int cmd_validate(const char* path, int argc, char** argv) {
+  std::vector<uint8_t> buf;
+  DecodedRecording rec;
+  if (!load_decoded(path, buf, rec)) return 2;
+
+  ValidationOptions opts;
+  if (flag_value(argc, argv, "--no-notes")) opts.include_notes = false;
+  // The bare presence of --no-notes is what matters, but flag_value needs a
+  // following token; accept the explicit form too.
+  for (int i = 1; i < argc; ++i) {
+    if (std::strcmp(argv[i], "--no-notes") == 0) opts.include_notes = false;
+  }
+
+  ValidationReport report = ValidationReport::run(rec, opts);
+  std::string out = render_validation(report);
+  std::fwrite(out.data(), 1, out.size(), stdout);
+
+  // Exit status reflects the worst severity so validate composes in a script:
+  // 0 = clean or notes only, 1 = warnings, 2 = errors.
+  switch (report.summary().worst()) {
+    case Severity3::Error: return 2;
+    case Severity3::Warning: return 1;
+    case Severity3::Note: return 0;
+  }
+  return 0;
 }
 
 int cmd_timeline(const char* path, int argc, char** argv) {
@@ -435,6 +463,7 @@ void usage() {
       "  blackspan report   <recording.bsp> [--format text|json|dot]\n"
       "  blackspan timeline <recording.bsp> [--device <id>] [--kinds a,b] "
       "[--since <ts>] [--until <ts>]\n"
+      "  blackspan validate <recording.bsp> [--no-notes]\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
@@ -487,6 +516,10 @@ int main(int argc, char** argv) {
   if (cmd == "timeline") {
     const char* p = need_file(3);
     return p ? cmd_timeline(p, argc, argv) : 2;
+  }
+  if (cmd == "validate") {
+    const char* p = need_file(3);
+    return p ? cmd_validate(p, argc, argv) : 2;
   }
   if (cmd == "query") {
     if (argc < 4) {

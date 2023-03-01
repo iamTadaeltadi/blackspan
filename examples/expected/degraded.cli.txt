@@ -91,6 +91,15 @@ digraph blackspan {
   state_6 -> state_9 [label="cause 15"];
 }
 
+$ blackspan validate degraded.bsp
+warning [stream-truncated] dev=00000000 seq=0: recording ends mid-frame after 17 complete frames
+warning [unterminated-session] dev=00b20007 seq=4181: session #0 left open at end of stream
+error   [end-without-begin] dev=00b20007 seq=4180: session-end with no active session
+note    [state-desync] dev=00b20007 seq=4187: transition s5 -> s6 did not continue the chain
+note    [critical-fault] dev=00b20007 seq=4191: critical fault code 784 subsystem 1
+note    [fault-burst] dev=00b20007 seq=4188: 4 faults within 750 ns
+1 error(s), 2 warning(s), 3 note(s)
+
 $ blackspan timeline degraded.bsp
 14 events over ts 90000250..90004000
   ts=90000250 dev=00b20007 session-begin    session #0 fw 3.1.0 class 23 "unit-b7 field return"

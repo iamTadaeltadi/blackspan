@@ -73,6 +73,9 @@ for name in $EXAMPLES; do
     echo "\$ blackspan report $name.bsp --format dot"
     "$BIN" report "$recording" --format dot
     echo
+    echo "\$ blackspan validate $name.bsp"
+    "$BIN" validate "$recording" || true   # non-zero exit signals findings
+    echo
     echo "\$ blackspan timeline $name.bsp"
     "$BIN" timeline "$recording"
     echo
