@@ -8,6 +8,7 @@
 #include "blackspan/anomaly.h"
 #include "blackspan/assemble.h"
 #include "blackspan/channel.h"
+#include "blackspan/diff.h"
 #include "blackspan/export.h"
 #include "blackspan/frame.h"
 #include "blackspan/pipeline.h"
@@ -218,6 +219,20 @@ bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
   }
   if (mask == 0) mask = kTimelineAllKinds;
   return true;
+}
+
+int cmd_diff(const char* left_path, const char* right_path) {
+  std::vector<uint8_t> lbuf, rbuf;
+  DecodedRecording left, right;
+  if (!load_decoded(left_path, lbuf, left)) return 2;
+  if (!load_decoded(right_path, rbuf, right)) return 2;
+
+  RecordingDiff diff = RecordingDiff::compare(left, right);
+  std::string out = render_diff(diff);
+  std::fwrite(out.data(), 1, out.size(), stdout);
+  // Exit 1 when the recordings differ, 0 when identical, so diff composes in a
+  // script the way a byte-diff does.
+  return diff.identical() ? 0 : 1;
 }
 
 int cmd_validate(const char* path, int argc, char** argv) {
@@ -464,6 +479,7 @@ void usage() {
       "  blackspan timeline <recording.bsp> [--device <id>] [--kinds a,b] "
       "[--since <ts>] [--until <ts>]\n"
       "  blackspan validate <recording.bsp> [--no-notes]\n"
+      "  blackspan diff     <baseline.bsp> <comparand.bsp>\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
@@ -520,6 +536,13 @@ int main(int argc, char** argv) {
   if (cmd == "validate") {
     const char* p = need_file(3);
     return p ? cmd_validate(p, argc, argv) : 2;
+  }
+  if (cmd == "diff") {
+    if (argc < 4) {
+      usage();
+      return 2;
+    }
+    return cmd_diff(argv[2], argv[3]);
   }
   if (cmd == "query") {
     if (argc < 4) {

@@ -68,6 +68,9 @@ blackspan timeline recording.bsp --kinds fault,state-transition --device 0x11
 # Structural lint over the reconstructed model (exit 2=errors, 1=warnings).
 blackspan validate recording.bsp
 
+# Compare two recordings structurally (a golden run against a field return).
+blackspan diff baseline.bsp comparand.bsp
+
 # Render the whole reconstructed model as text, JSON, or Graphviz.
 blackspan report recording.bsp --format text|json|dot
 
