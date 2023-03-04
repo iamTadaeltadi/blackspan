@@ -14,6 +14,7 @@
 #include "blackspan/pipeline.h"
 #include "blackspan/query.h"
 #include "blackspan/report.h"
+#include "blackspan/rewrite.h"
 #include "blackspan/schema.h"
 #include "blackspan/session.h"
 #include "blackspan/stats.h"
@@ -219,6 +220,127 @@ bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
   }
   if (mask == 0) mask = kTimelineAllKinds;
   return true;
+}
+
+// Parses a record type from its lowercase hyphenated name (as record_type_name
+// produces), or returns false.
+bool parse_record_type(const std::string& name, RecordType& out) {
+  for (int v = 0x01; v <= 0x0C; ++v) {
+    RecordType t = static_cast<RecordType>(v);
+    if (name == record_type_name(t)) {
+      out = t;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Writes bytes to --out, or to stdout when no --out was given.
+int write_output(const std::vector<uint8_t>& bytes, int argc, char** argv,
+                 size_t frame_count) {
+  const char* out_path = flag_value(argc, argv, "--out");
+  if (!out_path) {
+    std::fwrite(bytes.data(), 1, bytes.size(), stdout);
+    return 0;
+  }
+  FILE* f = std::fopen(out_path, "wb");
+  if (!f) {
+    std::fprintf(stderr, "error: cannot write %s\n", out_path);
+    return 2;
+  }
+  size_t written = std::fwrite(bytes.data(), 1, bytes.size(), f);
+  std::fclose(f);
+  if (written != bytes.size()) {
+    std::fprintf(stderr, "error: short write to %s\n", out_path);
+    return 2;
+  }
+  std::fprintf(stderr, "%s: %zu frames, %zu bytes\n", out_path, frame_count,
+               bytes.size());
+  return 0;
+}
+
+int cmd_slice(const char* path, int argc, char** argv) {
+  bool ok = false;
+  std::vector<uint8_t> buf = read_file(path, ok);
+  if (!ok) {
+    std::fprintf(stderr, "error: cannot read %s\n", path);
+    return 2;
+  }
+
+  RewriteFilter filter;
+  const char* dev = flag_value(argc, argv, "--device");
+  if (dev) filter.device = static_cast<uint32_t>(std::strtoul(dev, nullptr, 0));
+  const char* since = flag_value(argc, argv, "--since");
+  if (since) filter.since = std::strtoull(since, nullptr, 0);
+  const char* until = flag_value(argc, argv, "--until");
+  if (until) filter.until = std::strtoull(until, nullptr, 0);
+  const char* seq_lo = flag_value(argc, argv, "--seq-lo");
+  if (seq_lo) filter.seq_lo = static_cast<uint32_t>(std::strtoul(seq_lo, nullptr, 0));
+  const char* seq_hi = flag_value(argc, argv, "--seq-hi");
+  if (seq_hi) filter.seq_hi = static_cast<uint32_t>(std::strtoul(seq_hi, nullptr, 0));
+
+  const char* types = flag_value(argc, argv, "--types");
+  if (types) {
+    std::string s = types;
+    size_t start = 0;
+    while (start <= s.size()) {
+      size_t comma = s.find(',', start);
+      std::string tok = s.substr(
+          start, comma == std::string::npos ? std::string::npos : comma - start);
+      if (!tok.empty()) {
+        RecordType t;
+        if (!parse_record_type(tok, t)) {
+          std::fprintf(stderr, "error: unknown record type '%s'\n", tok.c_str());
+          return 2;
+        }
+        filter.types.push_back(t);
+      }
+      if (comma == std::string::npos) break;
+      start = comma + 1;
+    }
+  }
+
+  RewriteResult result = rewrite_slice(buf, filter);
+  if (result.input_status != FrameStatus::Ok &&
+      result.input_status != FrameStatus::Incomplete) {
+    std::fprintf(stderr, "warning: input decode halted: %s\n",
+                 frame_status_str(result.input_status));
+  }
+  std::fprintf(stderr, "sliced %zu of %zu frames\n", result.frames_kept,
+               result.frames_in);
+  return write_output(result.bytes, argc, argv, result.frames_kept);
+}
+
+int cmd_merge(int argc, char** argv) {
+  // blackspan merge <in1> <in2> [<in3> ...] --out <file>
+  std::vector<std::vector<uint8_t>> inputs;
+  for (int i = 2; i < argc; ++i) {
+    if (std::strncmp(argv[i], "--", 2) == 0) {
+      ++i;  // skip a flag and its value
+      continue;
+    }
+    bool ok = false;
+    std::vector<uint8_t> buf = read_file(argv[i], ok);
+    if (!ok) {
+      std::fprintf(stderr, "error: cannot read %s\n", argv[i]);
+      return 2;
+    }
+    inputs.push_back(std::move(buf));
+  }
+  if (inputs.size() < 2) {
+    std::fprintf(stderr, "usage: blackspan merge <in1> <in2> [...] --out <file>\n");
+    return 2;
+  }
+
+  MergeResult result = rewrite_merge(inputs);
+  if (result.inputs_truncated) {
+    std::fprintf(stderr, "warning: %zu input(s) ended on a partial or corrupt "
+                         "frame\n",
+                 result.inputs_truncated);
+  }
+  std::fprintf(stderr, "merged %zu inputs into %zu frames\n", inputs.size(),
+               result.frames_out);
+  return write_output(result.bytes, argc, argv, result.frames_out);
 }
 
 int cmd_diff(const char* left_path, const char* right_path) {
@@ -480,6 +602,10 @@ void usage() {
       "[--since <ts>] [--until <ts>]\n"
       "  blackspan validate <recording.bsp> [--no-notes]\n"
       "  blackspan diff     <baseline.bsp> <comparand.bsp>\n"
+      "  blackspan slice    <recording.bsp> [--device <id>] [--types a,b] "
+      "[--since <ts>] [--until <ts>] [--seq-lo <n>] [--seq-hi <n>] "
+      "[--out <file>]\n"
+      "  blackspan merge    <in1.bsp> <in2.bsp> [...] [--out <file>]\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
@@ -544,6 +670,11 @@ int main(int argc, char** argv) {
     }
     return cmd_diff(argv[2], argv[3]);
   }
+  if (cmd == "slice") {
+    const char* p = need_file(3);
+    return p ? cmd_slice(p, argc, argv) : 2;
+  }
+  if (cmd == "merge") return cmd_merge(argc, argv);
   if (cmd == "query") {
     if (argc < 4) {
       usage();

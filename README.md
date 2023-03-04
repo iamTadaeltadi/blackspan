@@ -71,6 +71,12 @@ blackspan validate recording.bsp
 # Compare two recordings structurally (a golden run against a field return).
 blackspan diff baseline.bsp comparand.bsp
 
+# Slice one device (or record types, or a time window) into a new recording.
+blackspan slice recording.bsp --device 0x11 --out one-unit.bsp
+
+# Merge several per-visit downloads into one time-ordered archive.
+blackspan merge visit1.bsp visit2.bsp --out combined.bsp
+
 # Render the whole reconstructed model as text, JSON, or Graphviz.
 blackspan report recording.bsp --format text|json|dot
 
