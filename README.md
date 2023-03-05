@@ -77,6 +77,9 @@ blackspan slice recording.bsp --device 0x11 --out one-unit.bsp
 # Merge several per-visit downloads into one time-ordered archive.
 blackspan merge visit1.bsp visit2.bsp --out combined.bsp
 
+# Convert a channel's raw counts to engineering units with a calibration table.
+blackspan calibrate recording.bsp --channel 2 --field 0 --table site.cal
+
 # Render the whole reconstructed model as text, JSON, or Graphviz.
 blackspan report recording.bsp --format text|json|dot
 

@@ -7,6 +7,7 @@
 
 #include "blackspan/anomaly.h"
 #include "blackspan/assemble.h"
+#include "blackspan/calibrate.h"
 #include "blackspan/channel.h"
 #include "blackspan/diff.h"
 #include "blackspan/export.h"
@@ -256,6 +257,52 @@ int write_output(const std::vector<uint8_t>& bytes, int argc, char** argv,
   }
   std::fprintf(stderr, "%s: %zu frames, %zu bytes\n", out_path, frame_count,
                bytes.size());
+  return 0;
+}
+
+int cmd_calibrate(const char* path, int argc, char** argv) {
+  const char* ch = flag_value(argc, argv, "--channel");
+  if (!ch) {
+    std::fprintf(stderr, "error: calibrate requires --channel <id>\n");
+    return 2;
+  }
+  const char* fl = flag_value(argc, argv, "--field");
+  uint16_t channel_id = static_cast<uint16_t>(std::strtoul(ch, nullptr, 0));
+  size_t field = fl ? static_cast<size_t>(std::strtoul(fl, nullptr, 0)) : 0;
+
+  CalibrationTable table;
+  const char* table_path = flag_value(argc, argv, "--table");
+  if (table_path) {
+    bool ok = false;
+    std::vector<uint8_t> tbytes = read_file(table_path, ok);
+    if (!ok) {
+      std::fprintf(stderr, "error: cannot read %s\n", table_path);
+      return 2;
+    }
+    CalibrationParse parse =
+        parse_calibration(std::string(tbytes.begin(), tbytes.end()));
+    if (!parse.ok()) {
+      for (const CalibrationDiagnostic& d : parse.errors) {
+        std::fprintf(stderr, "%s:%zu: %s (%s)\n", table_path, d.line,
+                     calibration_error_str(d.error), d.detail.c_str());
+      }
+      return 2;
+    }
+    table = parse.table;
+  }
+
+  std::vector<uint8_t> buf;
+  DecodedRecording rec;
+  if (!load_decoded(path, buf, rec)) return 2;
+
+  std::string unit;
+  std::vector<double> values =
+      table.apply_column(rec.channels(), channel_id, field, &unit);
+  std::printf("channel %u field %zu%s%s: %zu samples\n", channel_id, field,
+              unit.empty() ? "" : " in ", unit.c_str(), values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::printf("  %zu %.6g\n", i, values[i]);
+  }
   return 0;
 }
 
@@ -606,6 +653,8 @@ void usage() {
       "[--since <ts>] [--until <ts>] [--seq-lo <n>] [--seq-hi <n>] "
       "[--out <file>]\n"
       "  blackspan merge    <in1.bsp> <in2.bsp> [...] [--out <file>]\n"
+      "  blackspan calibrate <recording.bsp> --channel <id> [--field <n>] "
+      "[--table <cal.txt>]\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
@@ -675,6 +724,10 @@ int main(int argc, char** argv) {
     return p ? cmd_slice(p, argc, argv) : 2;
   }
   if (cmd == "merge") return cmd_merge(argc, argv);
+  if (cmd == "calibrate") {
+    const char* p = need_file(3);
+    return p ? cmd_calibrate(p, argc, argv) : 2;
+  }
   if (cmd == "query") {
     if (argc < 4) {
       usage();
