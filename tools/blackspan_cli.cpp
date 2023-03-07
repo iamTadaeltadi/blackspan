@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "blackspan/aggregate.h"
 #include "blackspan/anomaly.h"
 #include "blackspan/assemble.h"
 #include "blackspan/calibrate.h"
@@ -509,6 +510,41 @@ int cmd_stats(const char* path, int argc, char** argv) {
   return 0;
 }
 
+int cmd_aggregate(const char* path, int argc, char** argv) {
+  const char* ch = flag_value(argc, argv, "--channel");
+  if (!ch) {
+    std::fprintf(stderr, "error: aggregate requires --channel <id>\n");
+    return 2;
+  }
+  const char* wn = flag_value(argc, argv, "--window");
+  if (!wn) {
+    std::fprintf(stderr, "error: aggregate requires --window <ns>\n");
+    return 2;
+  }
+  const char* fl = flag_value(argc, argv, "--field");
+  const char* fn_name = flag_value(argc, argv, "--fn");
+
+  AggFn fn = AggFn::Mean;
+  if (fn_name && !parse_agg_fn(fn_name, fn)) {
+    std::fprintf(stderr, "error: unknown aggregation function '%s'\n", fn_name);
+    return 2;
+  }
+
+  std::vector<uint8_t> buf;
+  DecodedRecording rec;
+  if (!load_decoded(path, buf, rec)) return 2;
+
+  uint16_t channel_id = static_cast<uint16_t>(std::strtoul(ch, nullptr, 0));
+  size_t field = fl ? static_cast<size_t>(std::strtoul(fl, nullptr, 0)) : 0;
+  uint64_t window_ns = std::strtoull(wn, nullptr, 0);
+
+  std::vector<AggBucket> buckets =
+      aggregate_channel(rec.channels(), channel_id, field, window_ns, fn);
+  std::string rendered = render_buckets(buckets, fn);
+  std::fputs(rendered.c_str(), stdout);
+  return 0;
+}
+
 int cmd_export(const char* path, int argc, char** argv) {
   const char* ch = flag_value(argc, argv, "--channel");
   if (!ch) {
@@ -657,6 +693,8 @@ void usage() {
       "[--table <cal.txt>]\n"
       "  blackspan query    <recording.bsp> \"select ... \"\n"
       "  blackspan stats    <recording.bsp> --channel <id> [--field <n>]\n"
+      "  blackspan aggregate <recording.bsp> --channel <id> --window <ns> "
+      "[--field <n>] [--fn mean|min|max|first|last|count|sum]\n"
       "  blackspan export   <recording.bsp> --channel <id> "
       "[--format csv|tsv|ndjson]\n"
       "  blackspan import   <name> <recording.bsp> --workspace <dir>\n"
@@ -738,6 +776,10 @@ int main(int argc, char** argv) {
   if (cmd == "stats") {
     const char* p = need_file(3);
     return p ? cmd_stats(p, argc, argv) : 2;
+  }
+  if (cmd == "aggregate") {
+    const char* p = need_file(3);
+    return p ? cmd_aggregate(p, argc, argv) : 2;
   }
   if (cmd == "export") {
     const char* p = need_file(3);
