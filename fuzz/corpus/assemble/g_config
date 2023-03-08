@@ -1,0 +1,19 @@
+device 0x00C30007
+session 77
+ts 8000000
+tick 300
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+config param=1 old=0 new=1
+config param=2 old=10 new=20
+config param=3 old=100 new=50
+samples channel=1 delta=0
+  row 1000 600 35
+  row 1005 610 36
+end
+state from=1 to=2 cause=2
+state from=2 to=1 cause=3
+state from=1 to=0 cause=4
+session-end reason=0

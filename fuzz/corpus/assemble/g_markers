@@ -1,0 +1,16 @@
+device 0x00C30006
+session 66
+ts 7000000
+tick 750
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+marker kind=1 text="start of interest"
+samples channel=1 delta=0
+  row 1100 800 42
+end
+marker kind=3 text="end of interest"
+config param=5 old=1 new=2
+state from=1 to=0 cause=4
+session-end reason=0

@@ -1,0 +1,19 @@
+device 0x00C30002
+session 12
+ts 3000000
+tick 250
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+config param=12 old=100 new=140
+marker kind=2 text="load step"
+samples channel=1 delta=0
+  row 1200 900 44
+  row 1250 980 46
+end
+fault code=0x0104 severity=warning subsystem=2 detail="limit"
+fault code=0x0207 severity=error subsystem=2 detail="overcurrent"
+fault code=0x0301 severity=critical subsystem=1 detail="stall"
+state from=1 to=3 cause=9
+session-end reason=0

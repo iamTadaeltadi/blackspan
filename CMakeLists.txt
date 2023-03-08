@@ -40,3 +40,29 @@ foreach(test_src ${BLACKSPAN_TESTS})
     BLACKSPAN_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples")
   add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
+
+# The fuzz targets are built for ClusterFuzzLite by .clusterfuzzlite/build.sh,
+# which links libFuzzer. This option builds the same targets locally against a
+# standalone replay driver instead, so they can be compiled and exercised over
+# their seed corpus under AddressSanitizer without a libFuzzer toolchain. Each
+# fuzz/fuzz_<name>.cc becomes an executable that replays the files named on its
+# command line; a per-target ctest replays the checked-in corpus.
+option(BLACKSPAN_FUZZERS "Build fuzz targets with a standalone replay driver" OFF)
+if(BLACKSPAN_FUZZERS)
+  file(GLOB BLACKSPAN_FUZZERS_SRC CONFIGURE_DEPENDS fuzz/fuzz_*.cc)
+  foreach(fuzz_src ${BLACKSPAN_FUZZERS_SRC})
+    get_filename_component(fuzz_name ${fuzz_src} NAME_WE)
+    add_executable(${fuzz_name} ${fuzz_src} fuzz/standalone_main.cc)
+    target_include_directories(${fuzz_name}
+                               PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fuzz)
+    target_link_libraries(${fuzz_name} PRIVATE blackspan_core)
+    # fuzz_decode -> corpus/decode; replay every seed as one regression check.
+    string(REPLACE "fuzz_" "" corpus_name ${fuzz_name})
+    set(corpus_dir "${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus/${corpus_name}")
+    file(GLOB corpus_files "${corpus_dir}/*")
+    if(corpus_files)
+      add_test(NAME ${fuzz_name}_corpus
+               COMMAND ${fuzz_name} ${corpus_files})
+    endif()
+  endforeach()
+endif()

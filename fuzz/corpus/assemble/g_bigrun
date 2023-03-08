@@ -1,0 +1,76 @@
+device 0x00C30008
+session 88
+ts 9000000
+tick 125
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+samples channel=1 delta=0
+  row 800 400 25
+  row 802 405 26
+  row 804 410 27
+  row 806 415 28
+  row 808 420 29
+  row 810 425 30
+  row 812 430 31
+  row 814 435 32
+  row 816 440 33
+  row 818 445 34
+  row 820 450 35
+  row 822 455 36
+  row 824 460 37
+  row 826 465 38
+  row 828 470 39
+  row 830 475 40
+  row 832 480 41
+  row 834 485 42
+  row 836 490 43
+  row 838 495 44
+  row 840 500 45
+  row 842 505 46
+  row 844 510 47
+  row 846 515 48
+  row 848 520 49
+  row 850 525 50
+  row 852 530 51
+  row 854 535 52
+  row 856 540 53
+  row 858 545 54
+  row 860 550 25
+  row 862 555 26
+  row 864 560 27
+  row 866 565 28
+  row 868 570 29
+  row 870 575 30
+  row 872 580 31
+  row 874 585 32
+  row 876 590 33
+  row 878 595 34
+end
+checkpoint id=1 bytes=4096
+samples channel=2 delta=0
+  row 50.00 0
+  row 49.98 1
+  row 49.96 2
+  row 49.94 3
+  row 49.92 4
+  row 49.90 5
+  row 49.88 6
+  row 49.86 7
+  row 49.84 0
+  row 49.82 1
+  row 49.80 2
+  row 49.78 3
+  row 49.76 4
+  row 49.74 5
+  row 49.72 6
+  row 49.70 7
+  row 49.68 0
+  row 49.66 1
+  row 49.64 2
+  row 49.62 3
+end
+fault code=0x0110 severity=info subsystem=3 detail="note"
+state from=1 to=0 cause=4
+session-end reason=0

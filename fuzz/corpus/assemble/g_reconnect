@@ -1,0 +1,20 @@
+device 0x00C30003
+session 33
+ts 4000000
+tick 1000
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+samples channel=1 delta=0
+  row 1000 700 40
+end
+checkpoint id=1 bytes=8192
+reconnect gap=500 prev=32
+samples channel=1 delta=0
+  row 1010 710 41
+  row 1020 720 41
+end
+checkpoint id=2 bytes=16384
+state from=1 to=0 cause=4
+session-end reason=0

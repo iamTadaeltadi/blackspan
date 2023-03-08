@@ -1,0 +1,21 @@
+device 0x00C30004
+session 44
+ts 5000000
+tick 100
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+samples channel=1 delta=0
+  row 1300 1000 48
+  row 1350 1050 49
+end
+samples channel=2 delta=0
+  row 47.5 0
+  row 47.4 1
+end
+derived id=1 primary=1 name="power_w" expr="rpm * 0.001 * current_ma"
+derived id=2 primary=1 name="hot" expr="temp_c + 10"
+export format=json sections=0xffff
+export format=text sections=0x0004
+session-end reason=0

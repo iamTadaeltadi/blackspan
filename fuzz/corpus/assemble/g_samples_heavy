@@ -1,0 +1,50 @@
+device 0x00C30005
+session 55
+ts 6000000
+tick 200
+session-begin class=9 fw=1.0.0 epoch=1 label="gen"
+schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
+schema id=2 name=bus fields=volts:f32,fault_bits:u32
+state from=0 to=1 cause=1
+samples channel=1 delta=0
+  row 1000 500 30
+  row 1001 503 31
+  row 1002 506 32
+  row 1003 509 33
+  row 1004 512 34
+  row 1005 515 35
+  row 1006 518 36
+  row 1007 521 37
+  row 1008 524 38
+  row 1009 527 39
+  row 1010 530 40
+  row 1011 533 41
+  row 1012 536 42
+  row 1013 539 43
+  row 1014 542 44
+  row 1015 545 45
+  row 1016 548 46
+  row 1017 551 47
+  row 1018 554 48
+  row 1019 557 49
+  row 1020 560 30
+  row 1021 563 31
+  row 1022 566 32
+  row 1023 569 33
+end
+samples channel=2 delta=0
+  row 48.00 0
+  row 47.99 1
+  row 47.98 2
+  row 47.97 3
+  row 47.96 0
+  row 47.95 1
+  row 47.94 2
+  row 47.93 3
+  row 47.92 0
+  row 47.91 1
+  row 47.90 2
+  row 47.89 3
+end
+state from=1 to=2 cause=2
+session-end reason=0
