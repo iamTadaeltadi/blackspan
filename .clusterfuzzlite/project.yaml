@@ -1,0 +1,10 @@
+language: c++
+fuzz_targets:
+  - assemble
+  - decode
+  - derive
+  - export
+  - frame
+  - query
+  - report
+  - rewrite

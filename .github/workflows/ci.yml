@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure (ASan/UBSan)
-        run: cmake -S . -B build-asan -DBLACKSPAN_SANITIZE=ON
+        run: cmake -S . -B build-asan -DBLACKSPAN_SANITIZE=ON -DBLACKSPAN_FUZZERS=ON
       - name: Build
         run: cmake --build build-asan -j
       - name: Test
@@ -32,3 +32,21 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
           UBSAN_OPTIONS: halt_on_error=1
+
+  fuzz-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build fuzz targets the ClusterFuzzLite way
+        run: |
+          export SRC="$PWD" OUT="$PWD/fuzz-out" CXX=clang++
+          export CXXFLAGS="-fsanitize=address,undefined -g -fno-omit-frame-pointer"
+          export LIB_FUZZING_ENGINE="$SRC/fuzz/standalone_main.cc"
+          mkdir -p "$OUT"
+          bash .clusterfuzzlite/build.sh
+      - name: Replay each target's seed corpus under ASan
+        run: |
+          export ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1
+          for t in assemble decode derive export frame query report rewrite; do
+            ./fuzz-out/"$t" fuzz/corpus/"$t"/*
+          done
