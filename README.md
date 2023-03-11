@@ -90,6 +90,10 @@ blackspan query recording.bsp "select faults where severity >= error"
 # Summary statistics for one channel field.
 blackspan stats recording.bsp --channel 1 --field 0
 
+# Reduce a channel field into fixed time windows (mean/min/max/first/last/
+# count/sum) -- e.g. the mean of field 0 per one-second window.
+blackspan aggregate recording.bsp --channel 1 --window 1000000000 --fn mean
+
 # Export a channel to CSV, TSV, or newline-delimited JSON.
 blackspan export recording.bsp --channel 1 --format csv|tsv|ndjson
 
