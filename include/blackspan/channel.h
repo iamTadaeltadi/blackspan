@@ -31,6 +31,21 @@ namespace blackspan {
 // The rows that follow are sample_count copies of the resolved schema's stride.
 constexpr size_t kSampleBlockHeaderSize = 12;
 
+// Sample-block flag bits (the block header's flags field).
+//
+// kBlockAnchor marks a block that begins at a recorder keyframe -- a buffer
+// flush boundary the firmware guarantees is sample-aligned. Anchor blocks are
+// the fixed points cross-block references (derived-channel alignment, checkpoint
+// replay) resolve against, so retention preserves an anchor block's declared
+// sample span even when it trims the block's leading rows to reclaim memory.
+constexpr uint16_t kBlockAnchor = 0x0001;
+
+// Retention cap: a channel's series keeps at most this many of its most recent
+// samples in memory. A recording can stream far more samples than a triage
+// session needs to reconstruct, so the store compacts a channel back to this
+// bound as new blocks arrive, bounding memory on very long recordings.
+constexpr size_t kChannelRetentionCap = 4096;
+
 struct SampleBlockHeader {
   uint16_t channel_id = 0;
   uint16_t schema_version = 0;

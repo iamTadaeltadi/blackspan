@@ -52,6 +52,13 @@ ChannelError ChannelStore::ingest_frame(const Frame& f,
   const uint64_t base_ts = f.header.monotonic_ts + h.base_ts_delta;
   const uint8_t* rows = f.payload.data() + kSampleBlockHeaderSize;
   target->append_block(rows, rows_bytes, h.sample_count, h.flags, base_ts);
+
+  // Bound memory on long recordings: keep only the most recent samples once the
+  // series grows past the retention cap. Older blocks are retired and a straddling
+  // block is repacked in place.
+  if (target->total_samples() > kChannelRetentionCap) {
+    target->compact_to(kChannelRetentionCap);
+  }
   return ChannelError::None;
 }
 

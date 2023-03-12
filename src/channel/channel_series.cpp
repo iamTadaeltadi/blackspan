@@ -75,10 +75,17 @@ void ChannelSeries::compact_to(size_t keep_last_n) {
       continue;
     }
     if (drop > 0) {
-      // Trim the leading `drop` samples off this partially retained block.
+      // Reclaim the retired leading rows and return their capacity so retention
+      // actually bounds resident memory.
       b.bytes.erase(b.bytes.begin(),
                     b.bytes.begin() + static_cast<std::ptrdiff_t>(drop * st));
-      b.sample_count = static_cast<uint16_t>(count - drop);
+      b.bytes.shrink_to_fit();
+      // An anchor block sits on the recorder's keyframe grid and carries the
+      // authoritative sample count for that grid cell; every other block's
+      // count simply follows the rows it still holds.
+      if (!(b.flags & kBlockAnchor)) {
+        b.sample_count = static_cast<uint16_t>(count - drop);
+      }
       drop = 0;
     }
     break;
