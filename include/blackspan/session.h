@@ -71,6 +71,11 @@ struct ReconnectEvent {
   uint32_t prev_session_seq = 0;
   uint32_t at_seq = 0;
   uint64_t at_ts = 0;
+  // When the recorder resumed from a checkpoint, resume_marker_index is the
+  // index of the marker in effect at that checkpoint (within the session's
+  // marker list); resumed_from_checkpoint says whether that resume happened.
+  bool resumed_from_checkpoint = false;
+  uint32_t resume_marker_index = 0;
 };
 
 // A checkpoint as attached to a session: the decoded payload plus the frame
@@ -209,6 +214,12 @@ class SessionReconstructor {
     uint32_t last_seq = 0;       // last seq observed within the open session
     uint64_t last_ts = 0;        // last ts observed within the open session
     bool have_last = false;
+
+    // Markers durable at the most recent checkpoint, used to anchor a reconnect
+    // that resumed from that checkpoint. Set when a checkpoint is recorded and
+    // cleared when the session is closed cleanly by a session-end.
+    size_t ckpt_marker_count = 0;
+    bool have_ckpt = false;
   };
 
   void handle_begin(DeviceState& ds, uint32_t dev, const Frame& f);

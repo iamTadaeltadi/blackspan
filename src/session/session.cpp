@@ -177,6 +177,8 @@ void SessionReconstructor::handle_end(DeviceState& ds, uint32_t dev,
   ds.has_active = false;
   ds.active_index = kNoSession;
   ds.have_last = false;
+  ds.have_ckpt = false;
+  ds.ckpt_marker_count = 0;
 }
 
 void SessionReconstructor::handle_checkpoint(DeviceState& ds, uint32_t dev,
@@ -198,6 +200,11 @@ void SessionReconstructor::handle_checkpoint(DeviceState& ds, uint32_t dev,
   ev.at_seq = f.header.session_seq;
   ev.at_ts = f.header.monotonic_ts;
   sessions_[ds.active_index].checkpoints.push_back(ev);
+
+  // Remember how many markers were durable when this checkpoint was taken, so a
+  // reconnect that resumes from it can anchor back to the marker in effect then.
+  ds.ckpt_marker_count = sessions_[ds.active_index].markers.size();
+  ds.have_ckpt = true;
 
   if (ps != PayloadStatus::Ok) {
     diag(SessionDiagCode::TruncatedPayload, dev, f.header.session_seq,
@@ -224,6 +231,14 @@ void SessionReconstructor::handle_reconnect(DeviceState& ds, uint32_t dev,
   ev.prev_session_seq = rec.prev_session_seq;
   ev.at_seq = f.header.session_seq;
   ev.at_ts = f.header.monotonic_ts;
+
+  // If the recorder resumed from a checkpoint, remember which marker anchored
+  // it so a reader can resolve the resume point on demand.
+  if (ds.have_ckpt && ds.ckpt_marker_count > 0) {
+    ev.resumed_from_checkpoint = true;
+    ev.resume_marker_index = static_cast<uint32_t>(ds.ckpt_marker_count - 1);
+  }
+
   s.reconnects.push_back(ev);
   ++s.reconnect_count;
 
@@ -359,6 +374,13 @@ std::string describe_session(const Session& s) {
   if (s.seq_regressions || s.ts_regressions) {
     out += ", " + u32_dec(s.seq_regressions) + " seq / " +
            u32_dec(s.ts_regressions) + " ts regressions";
+  }
+  // Surface the resume point of any reconnect that resumed from a checkpoint, as
+  // the frame position of the marker it anchored to.
+  for (const ReconnectEvent& rc : s.reconnects) {
+    if (!rc.resumed_from_checkpoint) continue;
+    const MarkerEvent& anchor = s.markers[rc.resume_marker_index];
+    out += ", resume@" + u32_dec(anchor.at_seq);
   }
   out += ")";
   return out;
