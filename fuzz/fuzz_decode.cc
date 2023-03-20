@@ -15,6 +15,7 @@
 
 #include "blackspan/anomaly.h"
 #include "blackspan/channel.h"
+#include "blackspan/health.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/schema.h"
 #include "blackspan/session.h"
@@ -81,6 +82,17 @@ void walk_anomalies(const AnomalyEngine& anomalies) {
   g_sink += describe_anomaly_summary(anomalies.summary()).size();
 }
 
+void walk_health(const ChannelStore& channels) {
+  // Score every channel's restlessness the way triage would, exercising the
+  // length-proportional baseline over the decoded columns.
+  std::vector<HealthFinding> findings = channel_health_scan(channels, 1.0);
+  for (const HealthFinding& f : findings) {
+    g_sink += f.samples;
+    g_sink += describe_health(f).size();
+    g_sink += static_cast<size_t>(f.flagged);
+  }
+}
+
 }  // namespace
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
@@ -93,5 +105,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   walk_channels(rec.channels());
   walk_sessions(rec.sessions());
   walk_anomalies(rec.anomalies());
+  walk_health(rec.channels());
   return 0;
 }
