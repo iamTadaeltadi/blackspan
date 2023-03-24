@@ -12,8 +12,6 @@ uint64_t make_key(uint16_t channel_id, size_t field_index) {
          (static_cast<uint32_t>(field_index));
 }
 
-// Parses an unsigned integer token accepting decimal and 0x-hex; returns false
-// on any trailing garbage or an empty token.
 bool parse_index(const std::string& s, uint64_t& out) {
   if (s.empty()) return false;
   errno = 0;
@@ -24,7 +22,6 @@ bool parse_index(const std::string& s, uint64_t& out) {
   return true;
 }
 
-// Parses a real token; returns false on trailing garbage or an empty token.
 bool parse_double_token(const std::string& s, double& out) {
   if (s.empty()) return false;
   errno = 0;
@@ -37,7 +34,7 @@ bool parse_double_token(const std::string& s, double& out) {
   return true;
 }
 
-}  // namespace
+}
 
 const char* calibration_error_str(CalibrationError e) {
   switch (e) {
@@ -121,13 +118,12 @@ CalibrationParse parse_calibration(const std::string& text) {
     else
       start = nl + 1;
 
-    // Strip a trailing comment and surrounding whitespace.
     size_t hash = line.find('#');
     if (hash != std::string::npos) line = line.substr(0, hash);
 
     std::istringstream iss(line);
     std::string first;
-    if (!(iss >> first)) continue;  // blank line
+    if (!(iss >> first)) continue;
 
     auto fail = [&](CalibrationError e, const std::string& detail) {
       CalibrationDiagnostic d;
@@ -158,7 +154,6 @@ CalibrationParse parse_calibration(const std::string& text) {
     bool have_field = false;
     bool bad = false;
 
-    // The remaining tokens are keyword/value pairs in any order.
     std::string kw;
     while (iss >> kw) {
       if (kw == "field") {
@@ -191,8 +186,7 @@ CalibrationParse parse_calibration(const std::string& text) {
           break;
         }
       } else if (kw == "unit") {
-        // The unit is a single whitespace-free token (e.g. "V", "rpm",
-        // "m/s^2"), so keywords may appear in any order.
+
         std::string v;
         if (!(iss >> v)) {
           fail(CalibrationError::MissingField, "unit");
@@ -223,4 +217,4 @@ CalibrationParse parse_calibration(const std::string& text) {
   return result;
 }
 
-}  // namespace blackspan
+}

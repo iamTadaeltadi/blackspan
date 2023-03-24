@@ -14,8 +14,6 @@ namespace {
 
 using assemble_detail::DamageMode;
 
-// Splits a comma-separated list into its trimmed elements. An empty input
-// yields no elements; an empty element is preserved so the caller can reject it.
 std::vector<std::string> split_commas(const std::string& s) {
   std::vector<std::string> parts;
   if (s.empty()) return parts;
@@ -32,8 +30,6 @@ std::vector<std::string> split_commas(const std::string& s) {
   return parts;
 }
 
-// Splits a "name:type" schema field spec. Returns false when the colon is
-// missing or either side is empty.
 bool split_field_spec(const std::string& s, std::string& name,
                       std::string& type) {
   size_t colon = s.find(':');
@@ -43,18 +39,14 @@ bool split_field_spec(const std::string& s, std::string& name,
   return !name.empty() && !type.empty();
 }
 
-// The frame-header fields a record inherits from stream state, each overridable
-// per directive with dev=/seq=/ts=/flags=.
 struct HeaderState {
   uint32_t device_id = 0;
   uint32_t session_seq = 0;
   uint64_t monotonic_ts = 0;
   uint16_t flags = 0;
-  uint64_t tick = 0;  // added to monotonic_ts after each emitted frame
+  uint64_t tick = 0;
 };
 
-// Assembles one script. Lines are fed in order; every rejected directive is
-// recorded as a diagnostic and parsing continues so one run reports them all.
 class Assembler {
  public:
   void feed(const std::string& text, size_t lineno);
@@ -69,7 +61,7 @@ class Assembler {
   }
 
  private:
-  // Records a diagnostic for the line being parsed.
+
   void fail(AssembleError e, const std::string& detail) {
     AssembleDiagnostic d;
     d.line = line_no_;
@@ -78,13 +70,9 @@ class Assembler {
     errors_.push_back(std::move(d));
   }
 
-  // Rejects unknown and repeated argument keys. Positional arguments are left
-  // to the directive handler.
   bool check_keys(const ScriptLine& line,
                   std::initializer_list<const char*> allowed);
 
-  // Argument accessors. Each reports its own diagnostic on failure and returns
-  // false, so a handler can bail out on the first bad argument.
   const ScriptArg* positional(const ScriptLine& line, size_t index) const;
   bool req_uint(const ScriptLine& l, const char* key, uint64_t max,
                 uint64_t& out);
@@ -94,7 +82,6 @@ class Assembler {
                   uint64_t& out);
   bool opt_text(const ScriptLine& l, const char* key, std::string& out);
 
-  // Directive handlers.
   void do_device(const ScriptLine& l);
   void do_session(const ScriptLine& l);
   void do_ts(const ScriptLine& l);
@@ -118,8 +105,6 @@ class Assembler {
   void do_raw(const ScriptLine& l);
   void do_damage(const ScriptLine& l);
 
-  // Emits one frame carrying `payload`, honouring any per-directive header
-  // overrides on `l`, then advances the running sequence and timestamp.
   void emit(const ScriptLine& l, RecordType type,
             const std::vector<uint8_t>& payload);
 
@@ -129,13 +114,11 @@ class Assembler {
   size_t frame_count_ = 0;
   size_t line_no_ = 0;
 
-  // Offset of the most recently emitted frame, for the damage directive.
   size_t last_frame_start_ = 0;
   bool have_frame_ = false;
 
   ScriptSchemas schemas_;
 
-  // Open samples block, if any.
   bool in_block_ = false;
   size_t block_line_ = 0;
   const ChannelSchema* block_schema_ = nullptr;
@@ -204,7 +187,7 @@ bool Assembler::req_uint(const ScriptLine& l, const char* key, uint64_t max,
 bool Assembler::opt_uint(const ScriptLine& l, const char* key, uint64_t max,
                          uint64_t& out) {
   const ScriptArg* a = find_arg(l, key);
-  if (!a) return true;  // leave the caller's default in place
+  if (!a) return true;
   if (!parse_uint(a->value, UINT64_MAX, out)) {
     fail(AssembleError::BadArgument, std::string(key) + "=" + a->value);
     return false;
@@ -216,8 +199,6 @@ bool Assembler::opt_uint(const ScriptLine& l, const char* key, uint64_t max,
   return true;
 }
 
-// A state directive takes its value either from `key=` or from the first
-// positional argument, so `device 0x11` and `device id=0x11` are equivalent.
 bool Assembler::state_uint(const ScriptLine& l, const char* key, uint64_t max,
                            uint64_t& out) {
   const ScriptArg* a = find_arg(l, key);
@@ -276,8 +257,6 @@ void Assembler::emit(const ScriptLine& l, RecordType type,
   encode_frame(h, payload.data(), payload.size(), bytes_);
   ++frame_count_;
 
-  // The running counters advance only for records that took them from state;
-  // a one-shot override does not move the stream position.
   st_.session_seq += 1;
   st_.monotonic_ts += st_.tick;
 }
@@ -338,7 +317,7 @@ void Assembler::do_session_begin(const ScriptLine& l) {
 
   const ScriptArg* fw = find_arg(l, "fw");
   if (fw) {
-    // fw=<major>.<minor>.<patch>
+
     std::vector<std::string> parts;
     size_t start = 0;
     for (size_t i = 0; i <= fw->value.size(); ++i) {
@@ -524,7 +503,7 @@ void Assembler::do_end(const ScriptLine& l) {
       block_channel_, block_version_, block_delta_,
       static_cast<uint16_t>(block_rows_), block_flags_, payload);
   payload.insert(payload.end(), block_bytes_.begin(), block_bytes_.end());
-  // Header overrides ride on the opening samples directive, not on end.
+
   emit(block_line_args_, RecordType::SampleBlock, payload);
   block_bytes_.clear();
 }
@@ -746,7 +725,7 @@ void Assembler::feed(const std::string& text, size_t lineno) {
   ScriptLine line;
   line.line = lineno;
   AssembleError lex_err = AssembleError::None;
-  if (!lex_script_line(text, line, &lex_err)) return;  // blank or comment
+  if (!lex_script_line(text, line, &lex_err)) return;
   if (lex_err != AssembleError::None) {
     fail(lex_err, line.name);
     return;
@@ -754,8 +733,6 @@ void Assembler::feed(const std::string& text, size_t lineno) {
 
   const std::string& d = line.name;
 
-  // Inside a samples block only row and end are legal, so a mistyped directive
-  // cannot silently escape the block and land in the frame stream.
   if (in_block_ && d != "row" && d != "end") {
     fail(d == "samples" ? AssembleError::BlockInsideBlock
                         : AssembleError::DirectiveInsideBlock,
@@ -798,7 +775,7 @@ void Assembler::finish() {
   }
 }
 
-}  // namespace
+}
 
 AssembleResult assemble_script(const std::string& text) {
   Assembler a;
@@ -816,4 +793,4 @@ AssembleResult assemble_script(const std::string& text) {
   return a.take();
 }
 
-}  // namespace blackspan
+}

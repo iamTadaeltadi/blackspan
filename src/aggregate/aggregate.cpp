@@ -7,7 +7,6 @@
 namespace blackspan {
 namespace {
 
-// Reduces one window's values with the given function. `values` is non-empty.
 double reduce(const std::vector<double>& values, AggFn fn) {
   switch (fn) {
     case AggFn::Count:
@@ -40,7 +39,7 @@ double reduce(const std::vector<double>& values, AggFn fn) {
   return 0.0;
 }
 
-}  // namespace
+}
 
 const char* agg_fn_name(AggFn f) {
   switch (f) {
@@ -73,8 +72,6 @@ std::vector<std::pair<uint64_t, double>> column_with_timestamps(
   if (series == nullptr) return out;
   if (field_index >= series->schema().fields.size()) return out;
 
-  // Walk the series block by block so each sample can be paired with its block's
-  // base timestamp, using a running global index for the typed view.
   size_t global = 0;
   for (size_t b = 0; b < series->block_count(); ++b) {
     uint64_t base_ts = series->block_base_ts(b);
@@ -96,9 +93,6 @@ std::vector<AggBucket> aggregate_series(
   std::vector<AggBucket> out;
   if (window_ns == 0 || samples.empty()) return out;
 
-  // Sort by timestamp so windows are contiguous even if the caller supplied
-  // unordered pairs. A stable sort keeps equal-timestamp samples in input order,
-  // which First/Last depend on.
   std::vector<std::pair<uint64_t, double>> sorted = samples;
   std::stable_sort(sorted.begin(), sorted.end(),
                    [](const std::pair<uint64_t, double>& a,
@@ -161,4 +155,4 @@ std::string render_buckets(const std::vector<AggBucket>& buckets, AggFn fn) {
   return out;
 }
 
-}  // namespace blackspan
+}

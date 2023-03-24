@@ -25,8 +25,6 @@ static int failures = 0;
 
 namespace {
 
-// ---- recorder-stream builders -------------------------------------------
-
 void put_frame(std::vector<uint8_t>& wire, RecordType type, uint32_t device_id,
                uint32_t seq, uint64_t ts, const std::vector<uint8_t>& payload) {
   FrameHeader h;
@@ -37,8 +35,6 @@ void put_frame(std::vector<uint8_t>& wire, RecordType type, uint32_t device_id,
   encode_frame(h, payload.data(), payload.size(), wire);
 }
 
-// Builds a schema registry + channel store holding channel 1 with one u16 field
-// "raw" and samples {100, 200, 300} at block base timestamp 1001.
 void build_channels(SchemaRegistry& schemas, ChannelStore& channels) {
   std::vector<uint8_t> wire;
   {
@@ -49,7 +45,7 @@ void build_channels(SchemaRegistry& schemas, ChannelStore& channels) {
     const std::string cname = "temp";
     p.u8(static_cast<uint8_t>(cname.size()));
     p.bytes(reinterpret_cast<const uint8_t*>(cname.data()), cname.size());
-    p.u8(3);  // U16
+    p.u8(3);
     const std::string fname = "raw";
     p.u8(static_cast<uint8_t>(fname.size()));
     p.bytes(reinterpret_cast<const uint8_t*>(fname.data()), fname.size());
@@ -82,7 +78,7 @@ void add_fault(std::vector<uint8_t>& wire, uint32_t seq, uint64_t ts,
   p.u16(code);
   p.u8(severity);
   p.u8(1);
-  p.u8(0);  // no detail
+  p.u8(0);
   put_frame(wire, RecordType::Fault, 0x100, seq, ts, p.buf());
 }
 
@@ -96,23 +92,21 @@ void add_transition(std::vector<uint8_t>& wire, uint32_t seq, uint64_t ts,
   put_frame(wire, RecordType::StateTransition, 0x100, seq, ts, p.buf());
 }
 
-// Builds an anomaly engine with two transitions and four faults (codes
-// 10/11/12/42 at severities info/warning/error/critical), all on device 0x100.
 void build_anomalies(AnomalyEngine& engine) {
   std::vector<uint8_t> wire;
   add_transition(wire, 0, 1000, 0, 1, 5);
   add_transition(wire, 1, 1010, 1, 2, 6);
-  add_fault(wire, 2, 1100, 10, 0);  // info
-  add_fault(wire, 3, 1200, 11, 1);  // warning
-  add_fault(wire, 4, 1300, 12, 2);  // error
-  add_fault(wire, 5, 1400, 42, 3);  // critical
+  add_fault(wire, 2, 1100, 10, 0);
+  add_fault(wire, 3, 1200, 11, 1);
+  add_fault(wire, 4, 1300, 12, 2);
+  add_fault(wire, 5, 1400, 42, 3);
   engine.ingest(wire.data(), wire.size());
 }
 
 void put_begin(std::vector<uint8_t>& wire, uint32_t dev, uint32_t seq,
                uint64_t ts, const std::string& label) {
   ByteWriter w;
-  w.u16(1);  // device_class
+  w.u16(1);
   w.u8(0);
   w.u8(0);
   w.u16(0);
@@ -129,8 +123,6 @@ void put_end(std::vector<uint8_t>& wire, uint32_t dev, uint32_t seq,
   put_frame(wire, RecordType::SessionEnd, dev, seq, ts, w.buf());
 }
 
-// Reconstructs two sessions on device 7: "alpha" closed (duration 100) and
-// "beta" left unterminated at the end of the stream (duration 0).
 void build_sessions(SessionReconstructor& r) {
   std::vector<uint8_t> wire;
   put_begin(wire, 7, 0, 100, "alpha");
@@ -139,8 +131,6 @@ void build_sessions(SessionReconstructor& r) {
   r.reconstruct(wire.data(), wire.size());
 }
 
-// ---- helpers --------------------------------------------------------------
-
 std::string col(const QueryResultRow& r, const std::string& name) {
   for (const auto& c : r.columns) {
     if (c.first == name) return c.second;
@@ -148,9 +138,7 @@ std::string col(const QueryResultRow& r, const std::string& name) {
   return "<none>";
 }
 
-}  // namespace
-
-// ---- tests ----------------------------------------------------------------
+}
 
 static void test_faults_predicates() {
   AnomalyEngine engine;
@@ -171,31 +159,25 @@ static void test_faults_predicates() {
   CHECK(col(out.rows[0], "code") == "42");
   CHECK(col(out.rows[0], "device") == "256");
 
-  // or
   CHECK(qe.run("select faults where severity == info or severity == critical",
                out) == QueryError::None);
   CHECK(out.rows.size() == 2);
 
-  // not
   CHECK(qe.run("select faults where not code == 10", out) == QueryError::None);
   CHECK(out.rows.size() == 3);
 
-  // parentheses + precedence
   CHECK(qe.run(
             "select faults where (code == 10 or code == 11) and severity < "
             "error",
             out) == QueryError::None);
   CHECK(out.rows.size() == 2);
 
-  // limit
   CHECK(qe.run("select faults limit 2", out) == QueryError::None);
   CHECK(out.rows.size() == 2);
 
-  // empty result is success with zero rows
   CHECK(qe.run("select faults where code == 999", out) == QueryError::None);
   CHECK(out.rows.empty());
 
-  // no predicate returns all faults
   CHECK(qe.run("select faults", out) == QueryError::None);
   CHECK(out.rows.size() == 4);
 }
@@ -233,7 +215,6 @@ static void test_sessions() {
   CHECK(col(out.rows[0], "label") == "alpha");
   CHECK(col(out.rows[0], "duration") == "100");
 
-  // string comparison on label
   CHECK(qe.run("select sessions where label == 'alpha'", out) ==
         QueryError::None);
   CHECK(out.rows.size() == 1);
@@ -261,7 +242,6 @@ static void test_channels_and_samples() {
   CHECK(qe.run("select channels where id == 2", out) == QueryError::None);
   CHECK(out.rows.empty());
 
-  // samples: field comparison
   CHECK(qe.run("select samples from channel 1 where raw > 200", out) ==
         QueryError::None);
   CHECK(out.entity == "samples");
@@ -270,11 +250,9 @@ static void test_channels_and_samples() {
   CHECK(col(out.rows[0], "index") == "2");
   CHECK(col(out.rows[0], "ts") == "1001");
 
-  // all samples
   CHECK(qe.run("select samples from channel 1", out) == QueryError::None);
   CHECK(out.rows.size() == 3);
 
-  // index attribute + limit
   CHECK(qe.run("select samples from channel 1 where index == 0", out) ==
         QueryError::None);
   CHECK(out.rows.size() == 1);
@@ -284,11 +262,9 @@ static void test_channels_and_samples() {
         QueryError::None);
   CHECK(out.rows.size() == 2);
 
-  // no such channel is a runtime error
   CHECK(qe.run("select samples from channel 9 where raw > 1", out) ==
         QueryError::NoSuchChannel);
 
-  // unknown field on an existing channel is UnknownAttr at eval time
   CHECK(qe.run("select samples from channel 1 where bogus > 1", out) ==
         QueryError::UnknownAttr);
 }
@@ -304,7 +280,6 @@ static void test_null_sources() {
   CHECK(out.rows.empty());
 }
 
-// Every parse error and the byte position it reports.
 static void test_parse_errors() {
   struct Case {
     std::string q;

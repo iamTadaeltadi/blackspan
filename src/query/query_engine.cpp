@@ -6,22 +6,12 @@
 
 #include "blackspan/query.h"
 
-// Evaluator for the triage query language. It walks a parsed predicate over the
-// rows of one entity and collects those that satisfy it, capped by any 'limit'.
-// The predicate recursion (and / or / not) is generic; only the comparison leaf
-// is entity-specific, supplied as a callback that reads the attribute from the
-// current row. Row output columns are fixed per entity. Nothing here throws or
-// reads out of range: an absent store yields zero rows, and an attribute or
-// channel that cannot be resolved becomes a specific QueryError.
-
 namespace blackspan {
 
 namespace {
 
-// Sentinel column selectors for 'samples' comparisons resolved against a
-// schema. A non-negative value is a schema field index.
-constexpr int kSampleIndex = -2;  // the global sample index
-constexpr int kSampleTs = -3;     // the base timestamp of the sample's block
+constexpr int kSampleIndex = -2;
+constexpr int kSampleTs = -3;
 
 bool apply_num(CompareOp op, double a, double b) {
   switch (op) {
@@ -59,8 +49,6 @@ bool apply_str(CompareOp op, const std::string& a, const std::string& b) {
   return false;
 }
 
-// Evaluates a predicate against one row via a leaf callback that resolves each
-// comparison. A null predicate (no 'where' clause) matches every row.
 bool eval_pred(const PredNode* n,
                const std::function<bool(const PredNode&)>& leaf) {
   if (n == nullptr) return true;
@@ -83,8 +71,6 @@ bool eval_pred(const PredNode* n,
   return false;
 }
 
-// Formats a value read as a double: whole numbers print without a fractional
-// part, everything else with enough precision to round-trip a sample reading.
 std::string fmt_double(double v) {
   if (std::isnan(v)) return "nan";
   if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
@@ -101,7 +87,7 @@ size_t limit_of(const ParsedQuery& q) {
   return q.has_limit ? q.limit : std::numeric_limits<size_t>::max();
 }
 
-}  // namespace
+}
 
 QueryEngine::QueryEngine(const std::vector<Session>* sessions,
                          const ChannelStore* channels,
@@ -270,7 +256,7 @@ QueryError QueryEngine::run_channels(const ParsedQuery& q,
   for (uint16_t id : channels_->channels()) {
     if (out.rows.size() >= limit) break;
     const ChannelSeries* series = channels_->series(id);
-    if (series == nullptr) continue;  // defensive; channels() only lists series
+    if (series == nullptr) continue;
     const size_t versions =
         schemas_ != nullptr ? schemas_->versions(id).size() : 0;
 
@@ -311,9 +297,6 @@ QueryError QueryEngine::run_channels(const ParsedQuery& q,
 
 namespace {
 
-// Resolves every 'samples' comparison's attribute to a column selector against
-// the channel's schema: kSampleIndex, kSampleTs, or a field index. Returns
-// UnknownAttr for a name that is neither index/ts nor a schema field.
 QueryError bind_sample_attrs(PredNode* n, const ChannelSchema& schema) {
   if (n == nullptr) return QueryError::None;
   if (n->kind == PredKind::Comparison) {
@@ -335,8 +318,6 @@ QueryError bind_sample_attrs(PredNode* n, const ChannelSchema& schema) {
   return QueryError::None;
 }
 
-// The base timestamp of the block that holds the given global sample index, or
-// 0 if the index falls outside every block.
 uint64_t sample_ts(const ChannelSeries& series, size_t index) {
   size_t acc = 0;
   const size_t blocks = series.block_count();
@@ -348,12 +329,12 @@ uint64_t sample_ts(const ChannelSeries& series, size_t index) {
   return 0;
 }
 
-}  // namespace
+}
 
 QueryError QueryEngine::run_samples(const ParsedQuery& q,
                                     QueryResult& out) const {
   if (channels_ == nullptr) return QueryError::None;
-  if (!q.has_channel) return QueryError::MissingChannel;  // parser enforces this
+  if (!q.has_channel) return QueryError::MissingChannel;
   if (q.channel > 0xFFFFu) return QueryError::NoSuchChannel;
 
   const ChannelSeries* series =
@@ -404,4 +385,4 @@ QueryError QueryEngine::run_samples(const ParsedQuery& q,
   return QueryError::None;
 }
 
-}  // namespace blackspan
+}

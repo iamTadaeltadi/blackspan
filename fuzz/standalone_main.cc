@@ -1,10 +1,3 @@
-// Standalone driver for the fuzz targets, used for local replay only.
-//
-// ClusterFuzzLite links libFuzzer, which supplies its own main; this file is
-// NOT part of that build. It exists so a target can be built with just an
-// AddressSanitizer toolchain (no libFuzzer runtime) and replayed over the
-// checked-in corpus: each command-line path is read whole and handed to the
-// target once, and with no paths the driver reads a single input from stdin.
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -36,7 +29,7 @@ int run_file(const char* path) {
   return 0;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc < 2) {

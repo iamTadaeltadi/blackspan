@@ -7,15 +7,8 @@ namespace {
 
 using Sample = std::pair<uint64_t, double>;
 
-// Orders samples ascending by timestamp only; the value is left untouched so a
-// stable sort preserves ingest order among equal timestamps.
 bool by_ts(const Sample& a, const Sample& b) { return a.first < b.first; }
 
-// Reads a channel field as (block_base_ts, value) pairs, exactly as the aggregate
-// and resample subsystems do: walk the series block by block so each sample
-// inherits its block's base timestamp, and take the field widened to double.
-// Samples that cannot be viewed or read are skipped. Yields an empty vector for
-// an unknown channel or an out-of-range field.
 std::vector<Sample> channel_column(const ChannelStore& store, uint16_t channel_id,
                                    size_t field_index) {
   std::vector<Sample> out;
@@ -38,14 +31,12 @@ std::vector<Sample> channel_column(const ChannelStore& store, uint16_t channel_i
   return out;
 }
 
-// Reduces an ascending series to one value per timestamp, keeping the last value
-// recorded at each shared timestamp. Input must be sorted by timestamp.
 std::vector<Sample> dedup_last(const std::vector<Sample>& sorted) {
   std::vector<Sample> out;
   out.reserve(sorted.size());
   for (const Sample& s : sorted) {
     if (!out.empty() && out.back().first == s.first) {
-      out.back().second = s.second;  // last value at this timestamp wins
+      out.back().second = s.second;
     } else {
       out.push_back(s);
     }
@@ -53,10 +44,6 @@ std::vector<Sample> dedup_last(const std::vector<Sample>& sorted) {
   return out;
 }
 
-// Two-pointer merge over the last-value-per-timestamp reduction of each side.
-// Emits a row wherever the two sides share a timestamp; every distinct timestamp
-// present on only one side is counted as that side's unmatched. Both inputs must
-// be sorted ascending by timestamp.
 JoinResult inner_join(const std::vector<Sample>& left,
                       const std::vector<Sample>& right) {
   const std::vector<Sample> l = dedup_last(left);
@@ -88,11 +75,6 @@ JoinResult inner_join(const std::vector<Sample>& left,
   return res;
 }
 
-// As-of join. For each left sample, `pick` selects the index of the qualifying
-// right sample (or right.size() for none) and its timestamp; a match within the
-// (inclusive) tolerance yields a row, otherwise the left sample is unmatched.
-// Right samples never selected are tallied as right_unmatched. `right` must be
-// sorted ascending by timestamp.
 template <typename Pick>
 JoinResult asof_join(const std::vector<Sample>& left,
                      const std::vector<Sample>& right, uint64_t tolerance_ns,
@@ -122,9 +104,6 @@ JoinResult asof_join(const std::vector<Sample>& left,
   return res;
 }
 
-// Most recent right sample at ts <= target: the predecessor of the first sample
-// strictly after target. upper_bound makes that predecessor the last sample at
-// its timestamp, so equal-timestamp ties resolve to the last recorded.
 bool pick_backward(const std::vector<Sample>& right, uint64_t target, size_t& idx,
                    uint64_t& gap) {
   const auto ub = std::upper_bound(
@@ -132,13 +111,10 @@ bool pick_backward(const std::vector<Sample>& right, uint64_t target, size_t& id
       [](uint64_t v, const Sample& e) { return v < e.first; });
   if (ub == right.begin()) return false;
   idx = static_cast<size_t>((ub - right.begin()) - 1);
-  gap = target - right[idx].first;  // right[idx].first <= target
+  gap = target - right[idx].first;
   return true;
 }
 
-// Earliest right sample at ts >= target: the first sample not before target.
-// lower_bound makes that the first sample at its timestamp, so equal-timestamp
-// ties resolve to the first recorded.
 bool pick_forward(const std::vector<Sample>& right, uint64_t target, size_t& idx,
                   uint64_t& gap) {
   const auto lb = std::lower_bound(
@@ -146,13 +122,10 @@ bool pick_forward(const std::vector<Sample>& right, uint64_t target, size_t& idx
       [](const Sample& e, uint64_t v) { return e.first < v; });
   if (lb == right.end()) return false;
   idx = static_cast<size_t>(lb - right.begin());
-  gap = right[idx].first - target;  // right[idx].first >= target
+  gap = right[idx].first - target;
   return true;
 }
 
-// Returns a reference to `in` when it is already ascending, otherwise stably
-// sorts `scratch` (a copy) and returns that. Keeps the common sorted case free
-// of a copy while making an out-of-order input well-defined.
 const std::vector<Sample>& sorted_view(const std::vector<Sample>& in,
                                        std::vector<Sample>& scratch) {
   if (std::is_sorted(in.begin(), in.end(), by_ts)) return in;
@@ -161,7 +134,7 @@ const std::vector<Sample>& sorted_view(const std::vector<Sample>& in,
   return scratch;
 }
 
-}  // namespace
+}
 
 const char* join_kind_name(JoinKind k) {
   switch (k) {
@@ -207,4 +180,4 @@ JoinResult join_channels(const ChannelStore& store, uint16_t left_channel,
                      tolerance_ns);
 }
 
-}  // namespace blackspan
+}

@@ -45,15 +45,14 @@ static void test_table_set_get() {
   CHECK(t.size() == 1);
   CHECK(t.get(1, 0) != nullptr);
   CHECK(t.get(1, 1) == nullptr);
-  CHECK(nearly(t.apply(1, 0, 3), 7.0));   // 3*2+1
-  CHECK(nearly(t.apply(1, 1, 3), 3.0));   // no rule -> identity
-  CHECK(nearly(t.apply(9, 0, 3), 3.0));   // unknown channel -> identity
+  CHECK(nearly(t.apply(1, 0, 3), 7.0));
+  CHECK(nearly(t.apply(1, 1, 3), 3.0));
+  CHECK(nearly(t.apply(9, 0, 3), 3.0));
 
-  // Replacing a rule for the same key does not grow the table.
   r.scale = 3.0;
   t.set(r);
   CHECK(t.size() == 1);
-  CHECK(nearly(t.apply(1, 0, 1), 4.0));  // 1*3+1
+  CHECK(nearly(t.apply(1, 0, 1), 4.0));
 }
 
 static void test_parse_basic() {
@@ -81,7 +80,7 @@ static void test_parse_basic() {
 }
 
 static void test_parse_keyword_order_and_defaults() {
-  // Keywords in any order; scale/offset default to 1/0 when omitted.
+
   const char* text =
       "channel 3 unit deg field 2 offset 10\n";
   CalibrationParse p = parse_calibration(text);
@@ -102,7 +101,7 @@ static void test_parse_errors() {
     CHECK(p.errors[0].error == CalibrationError::UnknownDirective);
   }
   {
-    CalibrationParse p = parse_calibration("channel 1 scale 2\n");  // no field
+    CalibrationParse p = parse_calibration("channel 1 scale 2\n");
     CHECK(!p.ok());
     CHECK(p.errors[0].error == CalibrationError::MissingField);
   }
@@ -119,7 +118,7 @@ static void test_parse_errors() {
     CHECK(p.errors[0].error == CalibrationError::DuplicateRule);
     CHECK(p.errors[0].line == 2);
   }
-  // A malformed line does not discard the well-formed rules around it.
+
   {
     CalibrationParse p = parse_calibration(
         "channel 1 field 0 scale 2 offset 0\n"
@@ -153,7 +152,7 @@ static void test_roundtrip() {
 }
 
 static void test_apply_column() {
-  // A recording with a channel whose raw counts we calibrate to volts.
+
   const char* script =
       "device 1\n"
       "session 1\n"
@@ -183,7 +182,6 @@ static void test_apply_column() {
     CHECK(nearly(volts[2], 3.0));
   }
 
-  // With no rule the column comes back as raw counts.
   CalibrationTable empty;
   std::string u2;
   std::vector<double> raw = empty.apply_column(rec.channels(), 1, 0, &u2);

@@ -102,4 +102,4 @@ void ByteWriter::bytes(const uint8_t* p, size_t n) {
   buf_.insert(buf_.end(), p, p + n);
 }
 
-}  // namespace blackspan
+}

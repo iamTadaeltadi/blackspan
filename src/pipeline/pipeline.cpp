@@ -17,8 +17,7 @@ void DecodedRecording::decode(const uint8_t* data, size_t len) {
       default:
         break;
     }
-    // Session and anomaly reconstruction observe the full stream; each acts on
-    // the record types it owns and counts the rest.
+
     sessions_.accept(f);
     anomalies_.accept(f);
   }
@@ -26,4 +25,4 @@ void DecodedRecording::decode(const uint8_t* data, size_t len) {
   status_ = fs.status();
 }
 
-}  // namespace blackspan
+}

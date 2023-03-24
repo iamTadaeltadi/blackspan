@@ -40,9 +40,6 @@ static ChannelSchema make_schema(uint16_t channel_id, const std::string& name,
   return s;
 }
 
-// The imu channel used across the tests: a float, an unsigned counter, a byte
-// flag, a signed temperature, and a wide altitude. Stride = 4+4+1+2+8 = 19.
-// Field indices: ax=0, seq=1, ok=2, temp=3, alt=4.
 static ChannelSchema imu_schema(uint16_t channel_id = 3) {
   return make_schema(channel_id, "imu",
                      {{"ax", FieldType::F32}, {"seq", FieldType::U32},
@@ -58,7 +55,6 @@ struct ImuRow {
   double alt;
 };
 
-// A deterministic row family so tests know exactly what to read back.
 static ImuRow imu_row(int i) {
   ImuRow r;
   r.ax = static_cast<float>(i) * 1.5f;
@@ -81,14 +77,12 @@ static void write_imu_row(ByteWriter& w, const ImuRow& r) {
   w.u64(altbits);
 }
 
-// Encodes packed rows for a contiguous run of imu rows [lo, hi).
 static std::vector<uint8_t> imu_rows(int lo, int hi) {
   ByteWriter w;
   for (int i = lo; i < hi; ++i) write_imu_row(w, imu_row(i));
   return w.buf();
 }
 
-// Encodes a sample-block payload: fixed header followed by the packed rows.
 static std::vector<uint8_t> build_block_payload(uint16_t channel_id,
                                                 uint16_t version,
                                                 uint32_t base_ts_delta,
@@ -136,7 +130,6 @@ static void test_header_decode() {
   CHECK(h.sample_count == 5);
   CHECK(h.flags == 0x0FF0);
 
-  // A short payload is a truncated header.
   SampleBlockHeader h2;
   CHECK(decode_sample_block_header(p.data(), kSampleBlockHeaderSize - 1, h2) ==
         ChannelError::TruncatedHeader);
@@ -157,7 +150,6 @@ static void test_basic_ingest_via_wire() {
       build_block_payload(3, 1, 100, 2, 0x00AB, imu_rows(0, 2));
   const Frame f = make_block_frame(1000, payload);
 
-  // Feed the block through a full frame encode/decode round trip.
   std::vector<uint8_t> wire;
   encode_frame(f, wire);
   Frame decoded;
@@ -177,19 +169,18 @@ static void test_basic_ingest_via_wire() {
   CHECK(s->block_count() == 1);
   CHECK(s->block_sample_count(0) == 2);
   CHECK(s->block_flags(0) == 0x00AB);
-  CHECK(s->block_base_ts(0) == 1000 + 100);  // monotonic_ts + base_ts_delta
+  CHECK(s->block_base_ts(0) == 1000 + 100);
 
   const auto v0 = s->view(0);
   const auto v1v = s->view(1);
   CHECK(v0 && view_matches(*v0, imu_row(0)));
   CHECK(v1v && view_matches(*v1v, imu_row(1)));
-  CHECK(!s->view(2));  // out of range
+  CHECK(!s->view(2));
 
   size_t len = 0;
   CHECK(s->sample_bytes(1, &len) != nullptr && len == 19);
   CHECK(s->sample_bytes(2, &len) == nullptr && len == 0);
 
-  // column_as_doubles over the "ax" float field, widened to double.
   const std::vector<double> ax = store.column_as_doubles(3, 0);
   CHECK(ax.size() == 2);
   CHECK(ax[0] == static_cast<double>(imu_row(0).ax));
@@ -201,7 +192,6 @@ static void test_multi_block_indexing() {
   reg.register_schema(imu_schema());
   ChannelStore store;
 
-  // Block A: rows 0,1 at ts 1000; Block B: rows 2,3,4 at ts 2000.
   CHECK(store.ingest_frame(
             make_block_frame(1000, build_block_payload(3, 1, 0, 2, 0,
                                                        imu_rows(0, 2))),
@@ -218,14 +208,12 @@ static void test_multi_block_indexing() {
   CHECK(store.total_samples() == 5);
   CHECK(s->block_base_ts(1) == 2000);
 
-  // Global indices run across the block boundary in ingest order.
   for (int i = 0; i < 5; ++i) {
     const auto v = s->view(static_cast<size_t>(i));
     CHECK(v && view_matches(*v, imu_row(i)));
   }
   CHECK(!s->view(5));
 
-  // The "seq" column reads every retained sample in order.
   const std::vector<double> seq = store.column_as_doubles(3, 1);
   CHECK(seq.size() == 5);
   for (int i = 0; i < 5; ++i) {
@@ -246,7 +234,6 @@ static void test_multiple_channels_independent() {
                                                       imu_rows(0, 2))),
             reg) == ChannelError::None);
 
-  // Two power rows: (v,i) = (10, -1) and (20, -2).
   ByteWriter pwrows;
   pwrows.u16(10);
   pwrows.u16(static_cast<uint16_t>(-1));
@@ -272,13 +259,11 @@ static void test_multiple_channels_independent() {
   CHECK(pv1 && pv1->get_u16(0) && *pv1->get_u16(0) == 20);
   CHECK(pv1 && pv1->get_i16(1) && *pv1->get_i16(1) == -2);
 
-  // Compacting one channel leaves the other untouched.
   CHECK(store.compact_channel(3, 1) == ChannelError::None);
   CHECK(store.retained_samples(3) == 1);
   CHECK(store.retained_samples(5) == 2);
 }
 
-// Builds a store with imu blocks A=[0,1] and B=[2,3,4] (5 samples total).
 static void seed_five(SchemaRegistry& reg, ChannelStore& store) {
   reg.register_schema(imu_schema());
   store.ingest_frame(
@@ -294,12 +279,11 @@ static void test_compaction_keep_last_within_block() {
   ChannelStore store;
   seed_five(reg, store);
 
-  // Keep the last 2: survivors are rows 3 and 4, all inside block B.
   CHECK(store.compact_channel(3, 2) == ChannelError::None);
   CHECK(store.retained_samples(3) == 2);
   const ChannelSeries* s = store.series(3);
   CHECK(s->total_samples() == 2);
-  CHECK(s->block_count() == 1);  // block A dropped whole
+  CHECK(s->block_count() == 1);
   const auto v0 = s->view(0);
   const auto v1 = s->view(1);
   CHECK(v0 && view_matches(*v0, imu_row(3)));
@@ -317,7 +301,6 @@ static void test_compaction_partial_block() {
   ChannelStore store;
   seed_five(reg, store);
 
-  // Keep the last 4: drop only row 0, trimming block A to [row 1]; B intact.
   CHECK(store.compact_channel(3, 4) == ChannelError::None);
   const ChannelSeries* s = store.series(3);
   CHECK(s->total_samples() == 4);
@@ -326,7 +309,7 @@ static void test_compaction_partial_block() {
   CHECK(s->block_sample_count(1) == 3);
   for (int i = 0; i < 4; ++i) {
     const auto v = s->view(static_cast<size_t>(i));
-    CHECK(v && view_matches(*v, imu_row(i + 1)));  // survivors are rows 1..4
+    CHECK(v && view_matches(*v, imu_row(i + 1)));
   }
   CHECK(!s->view(4));
 }
@@ -336,11 +319,9 @@ static void test_compaction_edges() {
   ChannelStore store;
   seed_five(reg, store);
 
-  // keep_last_n >= total is a no-op.
   CHECK(store.compact_channel(3, 10) == ChannelError::None);
   CHECK(store.retained_samples(3) == 5);
 
-  // keep_last_n == 0 clears the series but keeps it addressable/empty.
   CHECK(store.compact_channel(3, 0) == ChannelError::None);
   CHECK(store.retained_samples(3) == 0);
   const ChannelSeries* s = store.series(3);
@@ -349,58 +330,56 @@ static void test_compaction_edges() {
   CHECK(!s->view(0));
   CHECK(store.column_as_doubles(3, 0).empty());
 
-  // Compacting an unknown channel is a specific error.
   CHECK(store.compact_channel(99, 1) == ChannelError::UnknownChannel);
 }
 
 static void test_error_cases() {
   SchemaRegistry reg;
-  reg.register_schema(imu_schema());  // channel 3, version 1 only
+  reg.register_schema(imu_schema());
   ChannelStore store;
 
-  // Wrong record type.
   {
     Frame f = make_block_frame(0, build_block_payload(3, 1, 0, 1, 0,
                                                       imu_rows(0, 1)));
     f.header.type = RecordType::Marker;
     CHECK(store.ingest_frame(f, reg) == ChannelError::NotSampleBlock);
   }
-  // Truncated header (payload shorter than the fixed header).
+
   {
     Frame f = make_block_frame(0, {1, 2, 3});
     CHECK(store.ingest_frame(f, reg) == ChannelError::TruncatedHeader);
   }
-  // Unknown channel.
+
   {
     Frame f = make_block_frame(0, build_block_payload(99, 1, 0, 1, 0,
                                                       imu_rows(0, 1)));
     CHECK(store.ingest_frame(f, reg) == ChannelError::UnknownChannel);
   }
-  // Unknown version of a known channel.
+
   {
     Frame f = make_block_frame(0, build_block_payload(3, 2, 0, 1, 0,
                                                       imu_rows(0, 1)));
     CHECK(store.ingest_frame(f, reg) == ChannelError::UnknownVersion);
   }
-  // Zero-count block.
+
   {
     Frame f = make_block_frame(0, build_block_payload(3, 1, 0, 0, 0, {}));
     CHECK(store.ingest_frame(f, reg) == ChannelError::ZeroCount);
   }
-  // Length mismatch: header claims 2 samples but only one row of bytes follows.
+
   {
     Frame f = make_block_frame(0, build_block_payload(3, 1, 0, 2, 0,
                                                       imu_rows(0, 1)));
     CHECK(store.ingest_frame(f, reg) == ChannelError::LengthMismatch);
   }
-  // Length mismatch: trailing byte after the declared rows.
+
   {
     std::vector<uint8_t> p = build_block_payload(3, 1, 0, 1, 0, imu_rows(0, 1));
     p.push_back(0xFF);
     Frame f = make_block_frame(0, p);
     CHECK(store.ingest_frame(f, reg) == ChannelError::LengthMismatch);
   }
-  // None of the error cases created a series.
+
   CHECK(store.series(3) == nullptr);
   CHECK(store.total_samples() == 0);
 }
@@ -409,7 +388,7 @@ static void test_version_mismatch_pinning() {
   SchemaRegistry reg;
   const ChannelSchema* v1 = reg.register_schema(imu_schema());
   CHECK(v1 && v1->version == 1);
-  // A different layout for the same channel becomes version 2 (wider stride).
+
   const ChannelSchema* v2 = reg.register_schema(make_schema(
       3, "imu",
       {{"ax", FieldType::F32}, {"seq", FieldType::U32}, {"ok", FieldType::U8},
@@ -418,18 +397,17 @@ static void test_version_mismatch_pinning() {
   CHECK(v2 && v2->version == 2 && v2->stride == 23);
 
   ChannelStore store;
-  // Pin the series to version 1.
+
   CHECK(store.ingest_frame(
             make_block_frame(0, build_block_payload(3, 1, 0, 1, 0,
                                                     imu_rows(0, 1))),
             reg) == ChannelError::None);
   CHECK(store.series(3)->schema_version() == 1);
 
-  // A valid version-2 block for the same channel is refused, not mixed in.
-  std::vector<uint8_t> v2rows(23, 0);  // one full v2 row of zeros
+  std::vector<uint8_t> v2rows(23, 0);
   Frame f = make_block_frame(0, build_block_payload(3, 2, 0, 1, 0, v2rows));
   CHECK(store.ingest_frame(f, reg) == ChannelError::VersionMismatch);
-  CHECK(store.series(3)->total_samples() == 1);  // unchanged
+  CHECK(store.series(3)->total_samples() == 1);
 }
 
 int main() {

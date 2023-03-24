@@ -46,8 +46,7 @@ std::string escape_json(const std::string& s) {
 }
 
 void JsonWriter::before_value() {
-  // A value that fills the slot after a key needs no separator: key() already
-  // wrote the colon and accounted for the member.
+
   if (pending_key_) {
     pending_key_ = false;
     return;
@@ -113,15 +112,14 @@ void JsonWriter::uint_value(unsigned long long v) {
 
 void JsonWriter::double_value(double v) {
   before_value();
-  // JSON has no literal for non-finite numbers; emit null so the document stays
-  // well-formed.
+
   if (!std::isfinite(v)) {
     out_ += "null";
     return;
   }
   char b[32];
   std::snprintf(b, sizeof(b), "%.6g", v);
-  // Guard against a locale that emits a comma as the decimal separator.
+
   for (char* p = b; *p; ++p) {
     if (*p == ',') *p = '.';
   }
@@ -138,4 +136,4 @@ void JsonWriter::null_value() {
   out_ += "null";
 }
 
-}  // namespace blackspan
+}

@@ -4,14 +4,6 @@
 
 #include "blackspan/query.h"
 
-// Tokenizer and recursive-descent parser for the triage query language. The
-// grammar and attribute tables are documented in query.h. The parser latches
-// the first error it meets, records the source position, and unwinds without
-// throwing; every construct that can be malformed maps to a specific
-// QueryError. Attribute validity is checked against the entity here for every
-// entity except 'samples', whose field names are resolved later against the
-// channel schema (see query_engine.cpp).
-
 namespace blackspan {
 
 const char* query_error_str(QueryError e) {
@@ -62,9 +54,6 @@ const char* query_entity_str(QueryEntity e) {
 
 namespace {
 
-// The deepest predicate nesting the parser will descend before refusing the
-// query. A guard well above any realistic triage predicate that keeps hostile,
-// deeply parenthesized input from overflowing the parse stack.
 constexpr int kMaxDepth = 256;
 
 bool is_space(char c) {
@@ -93,21 +82,17 @@ enum class Tok : uint8_t {
   Ge,
   LParen,
   RParen,
-  Invalid,  // an unrecognized character or malformed operator/number run
+  Invalid,
 };
 
 struct QTok {
   Tok kind = Tok::End;
-  size_t pos = 0;         // byte offset of the token's first character
-  double num = 0.0;       // Number
-  std::string text;       // Ident / String content
-  bool terminated = true;  // String: a closing quote was seen
+  size_t pos = 0;
+  double num = 0.0;
+  std::string text;
+  bool terminated = true;
 };
 
-// Splits the source into tokens, always ending with an End token whose position
-// is the input length. Unrecognized characters, malformed numbers, and lone
-// operator characters become Invalid tokens so the parser can point at them; an
-// unclosed string literal becomes a String token with terminated == false.
 std::vector<QTok> tokenize(const std::string& s) {
   std::vector<QTok> out;
   const size_t n = s.size();
@@ -130,7 +115,7 @@ std::vector<QTok> tokenize(const std::string& s) {
           t.num = static_cast<double>(std::strtoull(hx.c_str(), nullptr, 16));
           t.kind = Tok::Number;
         } else {
-          t.kind = Tok::Invalid;  // "0x" with no hex digits
+          t.kind = Tok::Invalid;
         }
         i = j;
         out.push_back(std::move(t));
@@ -172,7 +157,7 @@ std::vector<QTok> tokenize(const std::string& s) {
       t.kind = Tok::String;
       t.text = s.substr(body, j - body);
       t.terminated = (j < n);
-      i = (j < n) ? j + 1 : j;  // consume the closing quote when present
+      i = (j < n) ? j + 1 : j;
       out.push_back(std::move(t));
       continue;
     }
@@ -229,13 +214,11 @@ std::vector<QTok> tokenize(const std::string& s) {
   return out;
 }
 
-// The kind of value an attribute accepts, used to type-check the right-hand
-// side of a comparison at parse time.
 enum class AttrType : uint8_t {
-  Unknown,   // the attribute is not defined for the entity
-  Numeric,   // compares against an integer / float / hex literal
-  String,    // compares against a quoted string literal
-  Severity,  // compares against a severity word or an integer level
+  Unknown,
+  Numeric,
+  String,
+  Severity,
 };
 
 AttrType classify_attr(QueryEntity e, const std::string& a) {
@@ -262,8 +245,7 @@ AttrType classify_attr(QueryEntity e, const std::string& a) {
       if (a == "name") return AttrType::String;
       return AttrType::Unknown;
     case QueryEntity::Samples:
-      // Field names are resolved against the channel schema at evaluation time;
-      // every attribute on a sample row is numeric.
+
       return AttrType::Numeric;
   }
   return AttrType::Unknown;
@@ -295,10 +277,6 @@ std::unique_ptr<PredNode> new_pred(PredKind k) {
   return n;
 }
 
-// A recursive-descent parser over a tokenized query. It latches the first error
-// it meets and unwinds; every recursive step checks `error` before building a
-// node. `entity` is fixed before predicate parsing so attribute validity can be
-// checked as each comparison is read.
 struct Parser {
   explicit Parser(const std::vector<QTok>& t) : toks(t) {}
 
@@ -320,8 +298,6 @@ struct Parser {
     }
   }
 
-  // The error a token warrants where a specific construct was expected: a
-  // premature End, an unterminated string, or otherwise an unexpected token.
   QueryError token_error(const QTok& t) const {
     if (t.kind == Tok::End) return QueryError::UnexpectedEnd;
     if (t.kind == Tok::String && !t.terminated)
@@ -337,8 +313,6 @@ struct Parser {
     return false;
   }
 
-  // Reads a non-negative integer literal no greater than `max`. A missing or
-  // non-integer token fails with BadValue (or UnexpectedEnd at end of input).
   bool take_uint(uint64_t max, uint64_t* out) {
     const QTok& t = peek();
     if (t.kind == Tok::End) {
@@ -386,7 +360,6 @@ struct Parser {
     return true;
   }
 
-  // Reads the right-hand literal and type-checks it against the attribute kind.
   bool parse_value(AttrType at, QueryValue* out) {
     const QTok& t = peek();
     switch (t.kind) {
@@ -404,7 +377,7 @@ struct Parser {
           advance();
           return true;
         }
-        if (at == AttrType::Severity) {  // a quoted severity word is accepted
+        if (at == AttrType::Severity) {
           double lvl = 0.0;
           if (!severity_level(t.text, &lvl)) {
             fail(QueryError::BadValue, t.pos);
@@ -414,10 +387,10 @@ struct Parser {
           advance();
           return true;
         }
-        fail(QueryError::BadValue, t.pos);  // numeric attr, string literal
+        fail(QueryError::BadValue, t.pos);
         return false;
       }
-      case Tok::Ident: {  // a bare word is a value only for a severity attribute
+      case Tok::Ident: {
         if (at != AttrType::Severity) {
           fail(QueryError::BadValue, t.pos);
           return false;
@@ -452,9 +425,6 @@ struct Parser {
   std::unique_ptr<PredNode> parse_comparison();
 };
 
-// Bounds predicate recursion: constructed on entry to each recursive rule, it
-// reports whether descending one more level is within the limit and releases
-// the level when the rule returns.
 struct DepthGuard {
   Parser& p;
   bool ok;
@@ -538,7 +508,7 @@ std::unique_ptr<PredNode> Parser::parse_comparison() {
   return node;
 }
 
-}  // namespace
+}
 
 QueryError parse_query(const std::string& text, ParsedQuery& out,
                        size_t* err_pos) {
@@ -563,7 +533,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
     return e;
   }
 
-  // entity
   if (p.peek().kind != Tok::Ident) {
     const QueryError e = p.token_error(p.peek());
     if (err_pos) *err_pos = p.peek().pos;
@@ -590,7 +559,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
   p.advance();
   const size_t after_entity_pos = p.peek().pos;
 
-  // optional 'from channel N'
   if (p.accept_keyword("from")) {
     if (!p.accept_keyword("channel")) {
       const QueryError e = p.token_error(p.peek());
@@ -606,7 +574,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
     out.channel = static_cast<uint32_t>(ch);
   }
 
-  // optional 'where predicate'
   if (p.accept_keyword("where")) {
     out.predicate = p.parse_or();
     if (p.error != QueryError::None) {
@@ -615,7 +582,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
     }
   }
 
-  // optional 'limit N'
   if (p.accept_keyword("limit")) {
     uint64_t lim = 0;
     if (!p.take_uint((1ull << 53), &lim)) {
@@ -626,7 +592,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
     out.limit = static_cast<size_t>(lim);
   }
 
-  // Nothing may follow a complete query.
   if (p.peek().kind != Tok::End) {
     const QTok& t = p.peek();
     QueryError e = QueryError::TrailingTokens;
@@ -636,7 +601,6 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
     return e;
   }
 
-  // A 'samples' query must name the channel it reads from.
   if (entity == QueryEntity::Samples && !out.has_channel) {
     if (err_pos) *err_pos = after_entity_pos;
     return QueryError::MissingChannel;
@@ -645,4 +609,4 @@ QueryError parse_query(const std::string& text, ParsedQuery& out,
   return QueryError::None;
 }
 
-}  // namespace blackspan
+}

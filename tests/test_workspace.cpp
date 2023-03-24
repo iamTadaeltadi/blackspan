@@ -40,8 +40,6 @@ static std::filesystem::path make_temp_dir() {
   return base / "bs_ws_test_fallback";
 }
 
-// Builds a small but structurally valid recording with known record-type
-// counts: SessionBegin 1, SampleBlock 2, Marker 1, Fault 1, SessionEnd 1.
 static std::vector<uint8_t> build_recording() {
   std::vector<uint8_t> wire;
   const auto add = [&](RecordType t, std::vector<uint8_t> payload) {
@@ -63,11 +61,10 @@ static void test_sha256_vectors() {
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
   CHECK(hex_of("abc") ==
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-  // FIPS 180-4 two-block example (448-bit message).
+
   CHECK(hex_of("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") ==
         "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
 
-  // Streaming in odd-sized chunks must match the one-shot digest.
   const std::string msg(1000, 'a');
   Sha256 h;
   size_t off = 0;
@@ -83,7 +80,7 @@ static void test_sha256_vectors() {
 
 static void run_content_store_suite(ContentStore& store) {
   const std::string a = "the quick brown fox";
-  const std::string b = "the quick brown fox";  // identical bytes
+  const std::string b = "the quick brown fox";
   const std::string c = "a different recording";
 
   const std::string ida =
@@ -94,10 +91,10 @@ static void run_content_store_suite(ContentStore& store) {
       store.put(reinterpret_cast<const uint8_t*>(c.data()), c.size());
 
   CHECK(!ida.empty());
-  CHECK(ida == hex_of(a));      // id is the content hash
-  CHECK(ida == idb);            // dedup: identical bytes share an id
+  CHECK(ida == hex_of(a));
+  CHECK(ida == idb);
   CHECK(idc != ida);
-  CHECK(store.count() == 2);    // three puts, two distinct objects
+  CHECK(store.count() == 2);
 
   CHECK(store.has(ida));
   CHECK(store.has(idc));
@@ -112,7 +109,6 @@ static void run_content_store_suite(ContentStore& store) {
   out.clear();
   CHECK(!store.get("nope", out));
 
-  // Empty content round-trips and hashes to the well-known empty digest.
   const std::string ide = store.put(nullptr, 0);
   CHECK(ide == hex_of(""));
   CHECK(store.has(ide));
@@ -131,14 +127,13 @@ static void test_content_store_file(const std::filesystem::path& root) {
   ContentStore store(backend);
   run_content_store_suite(store);
 
-  // A fresh backend over the same root must see the persisted objects.
   auto reopened = std::make_shared<FileBackend>(root.string());
   const std::string id = hex_of("the quick brown fox");
   CHECK(reopened->has(id));
   std::vector<uint8_t> out;
   CHECK(reopened->get(id, out));
   CHECK(std::string(out.begin(), out.end()) == "the quick brown fox");
-  CHECK(reopened->ids().size() == 3);  // two texts + empty object
+  CHECK(reopened->ids().size() == 3);
 }
 
 static void check_recording_summary(const RecordingSummary& s) {
@@ -160,7 +155,6 @@ static void test_workspace_memory() {
   CHECK(ws.has("flight-01"));
   CHECK(ws.size() == 1);
 
-  // Bad and duplicate names are rejected as status values, never thrown.
   CHECK(ws.import("", rec.data(), rec.size()) == WorkspaceError::BadName);
   CHECK(ws.import("bad\tname", rec.data(), rec.size()) ==
         WorkspaceError::BadName);
@@ -181,7 +175,6 @@ static void test_workspace_memory() {
   CHECK(out == rec);
   CHECK(ws.open("missing", out) == WorkspaceError::NotFound);
 
-  // Dedup across two names: one object, two catalog entries.
   CHECK(ws.import("flight-01-copy", rec.data(), rec.size()) ==
         WorkspaceError::Ok);
   CHECK(ws.size() == 2);
@@ -196,7 +189,7 @@ static void test_workspace_memory() {
   CHECK(!ws.has("flight-01"));
   CHECK(ws.remove("flight-01") == WorkspaceError::NotFound);
   CHECK(ws.open("flight-01", out) == WorkspaceError::NotFound);
-  // The shared object is still reachable through the surviving name.
+
   CHECK(ws.open("flight-01-copy", out) == WorkspaceError::Ok);
   CHECK(out == rec);
 }
@@ -211,11 +204,9 @@ static void test_workspace_persistence(const std::filesystem::path& root) {
     CHECK(ws.import("alpha", rec.data(), rec.size()) == WorkspaceError::Ok);
     CHECK(ws.import("alpha-dup", rec.data(), rec.size()) == WorkspaceError::Ok);
     CHECK(ws.import("beta", other.data(), other.size()) == WorkspaceError::Ok);
-    CHECK(ws.object_count() == 2);  // alpha == alpha-dup share one object
+    CHECK(ws.object_count() == 2);
   }
 
-  // A brand-new Workspace over the same root and catalog file must recover the
-  // catalog, its metadata, and the underlying objects.
   {
     Workspace ws(std::make_shared<FileBackend>(root.string()), catalog);
     CHECK(ws.size() == 3);
@@ -235,7 +226,6 @@ static void test_workspace_persistence(const std::filesystem::path& root) {
     CHECK(ws.open("beta", out) == WorkspaceError::Ok);
     CHECK(out == other);
 
-    // Persisted removal survives another reopen.
     CHECK(ws.remove("beta") == WorkspaceError::Ok);
   }
   {

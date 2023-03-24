@@ -10,10 +10,6 @@
 
 namespace blackspan {
 
-// ---------------------------------------------------------------------------
-// ContentStore
-// ---------------------------------------------------------------------------
-
 ContentStore::ContentStore(std::shared_ptr<StorageBackend> backend)
     : backend_(std::move(backend)) {}
 
@@ -33,10 +29,6 @@ bool ContentStore::has(const std::string& id) const {
 }
 
 size_t ContentStore::count() const { return backend_->ids().size(); }
-
-// ---------------------------------------------------------------------------
-// Errors and summary
-// ---------------------------------------------------------------------------
 
 const char* workspace_error_str(WorkspaceError e) {
   switch (e) {
@@ -72,12 +64,10 @@ RecordingSummary summarize(const uint8_t* data, size_t len) {
   return s;
 }
 
-// A recording name must be non-empty and free of characters that would break
-// the tab-separated catalog line or the filesystem layout.
 bool valid_name(const std::string& name) {
   if (name.empty()) return false;
   for (const unsigned char c : name) {
-    if (c < 0x20) return false;  // control characters, tab, newline, CR
+    if (c < 0x20) return false;
     if (c == '/' || c == '\\') return false;
   }
   return true;
@@ -125,7 +115,7 @@ std::map<RecordType, uint64_t> decode_counts(const std::string& field) {
     pos = (comma == std::string::npos) ? field.size() : comma + 1;
 
     const size_t colon = token.find(':');
-    if (colon != 2) continue;  // type is exactly two hex digits
+    if (colon != 2) continue;
     const int hi = hex_nibble(token[0]);
     const int lo = hex_nibble(token[1]);
     if (hi < 0 || lo < 0) continue;
@@ -192,11 +182,7 @@ bool decode_entry(const std::string& line, RecordingInfo& info) {
   return true;
 }
 
-}  // namespace
-
-// ---------------------------------------------------------------------------
-// Workspace
-// ---------------------------------------------------------------------------
+}
 
 Workspace::Workspace(std::shared_ptr<StorageBackend> backend,
                      std::string catalog_path)
@@ -220,7 +206,7 @@ WorkspaceError Workspace::import(const std::string& name, const uint8_t* data,
 
   catalog_[name] = info;
   if (!save()) {
-    catalog_.erase(name);  // keep the in-memory catalog matching disk
+    catalog_.erase(name);
     return WorkspaceError::IoError;
   }
   return WorkspaceError::Ok;
@@ -251,7 +237,7 @@ WorkspaceError Workspace::remove(const std::string& name) {
   RecordingInfo saved = std::move(it->second);
   catalog_.erase(it);
   if (!save()) {
-    catalog_[name] = std::move(saved);  // roll back to match disk
+    catalog_[name] = std::move(saved);
     return WorkspaceError::IoError;
   }
   return WorkspaceError::Ok;
@@ -269,7 +255,7 @@ bool Workspace::has(const std::string& name) const {
 }
 
 bool Workspace::save() const {
-  if (catalog_path_.empty()) return true;  // in-memory catalog, nothing to do
+  if (catalog_path_.empty()) return true;
 
   std::string content;
   for (const auto& kv : catalog_) {
@@ -312,7 +298,7 @@ void Workspace::load() {
   if (catalog_path_.empty()) return;
 
   std::ifstream f(catalog_path_, std::ios::binary);
-  if (!f) return;  // no catalog persisted yet
+  if (!f) return;
 
   std::string line;
   while (std::getline(f, line)) {
@@ -323,4 +309,4 @@ void Workspace::load() {
   }
 }
 
-}  // namespace blackspan
+}

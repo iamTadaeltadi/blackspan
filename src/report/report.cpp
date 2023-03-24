@@ -86,7 +86,7 @@ std::string format_number(double v) {
   if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
   char b[32];
   std::snprintf(b, sizeof(b), "%.6g", v);
-  // Guard against a locale that emits a comma as the decimal separator.
+
   for (char* p = b; *p; ++p) {
     if (*p == ',') *p = '.';
   }
@@ -104,8 +104,7 @@ std::string escape_dot(const std::string& s) {
     } else if (c == '\n') {
       out += "\\n";
     } else if (c < 0x20) {
-      // Any other control character (carriage return, tab, ...) collapses to a
-      // space so it can never break the quoted label or the line structure.
+
       out += ' ';
     } else {
       out += static_cast<char>(c);
@@ -143,6 +142,6 @@ bool want(uint16_t mask, uint16_t bit, const void* ptr) {
   return ptr != nullptr && (mask & bit) != 0;
 }
 
-}  // namespace report_detail
+}
 
-}  // namespace blackspan
+}

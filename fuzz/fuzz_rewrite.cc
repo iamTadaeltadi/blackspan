@@ -1,10 +1,3 @@
-// rewrite: slices and merges a recording, then decodes the results.
-//
-// A filter is built from the input's leading byte (a record-type bitmask); the
-// remainder is sliced under it and re-encoded, then decoded back through the
-// full pipeline so the slice output is validated as a real recording. The
-// original and the slice are also merged into one ordered stream and decoded.
-// This drives the frame re-encoder and the merge ordering over arbitrary input.
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -23,7 +16,7 @@ size_t decode_and_count(const std::vector<uint8_t>& bytes) {
   rec.decode(bytes.data(), bytes.size());
   return rec.frame_count() + rec.channels().total_samples();
 }
-}  // namespace
+}
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   uint8_t selector = size ? data[0] : 0xFF;
@@ -31,7 +24,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   size_t body_len = size ? size - 1 : 0;
 
   RewriteFilter filter;
-  // Bits 0..11 select record types 0x01..0x0C; an all-zero selector keeps all.
+
   for (uint8_t i = 0; i < 12; ++i) {
     if (selector & (1u << (i & 7))) {
       filter.types.push_back(static_cast<RecordType>(i + 1));

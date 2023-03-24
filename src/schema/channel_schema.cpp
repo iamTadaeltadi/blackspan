@@ -74,4 +74,4 @@ std::string ChannelSchema::describe() const {
   return out;
 }
 
-}  // namespace blackspan
+}

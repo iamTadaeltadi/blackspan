@@ -7,8 +7,6 @@ namespace blackspan {
 
 namespace {
 
-// True for record type bytes that the recorder frame format defines. An
-// out-of-range byte (a record type this build does not know) returns false.
 bool is_known_record_type(RecordType t) {
   switch (t) {
     case RecordType::SessionBegin:
@@ -40,7 +38,7 @@ std::string byte_hex(uint8_t v) {
   return std::string(b);
 }
 
-}  // namespace
+}
 
 const char* session_diag_str(SessionDiagCode c) {
   switch (c) {
@@ -201,8 +199,6 @@ void SessionReconstructor::handle_checkpoint(DeviceState& ds, uint32_t dev,
   ev.at_ts = f.header.monotonic_ts;
   sessions_[ds.active_index].checkpoints.push_back(ev);
 
-  // Remember how many markers were durable when this checkpoint was taken, so a
-  // reconnect that resumes from it can anchor back to the marker in effect then.
   ds.ckpt_marker_count = sessions_[ds.active_index].markers.size();
   ds.have_ckpt = true;
 
@@ -232,8 +228,6 @@ void SessionReconstructor::handle_reconnect(DeviceState& ds, uint32_t dev,
   ev.at_seq = f.header.session_seq;
   ev.at_ts = f.header.monotonic_ts;
 
-  // If the recorder resumed from a checkpoint, remember which marker anchored
-  // it so a reader can resolve the resume point on demand.
   if (ds.have_ckpt && ds.ckpt_marker_count > 0) {
     ev.resumed_from_checkpoint = true;
     ev.resume_marker_index = static_cast<uint32_t>(ds.ckpt_marker_count - 1);
@@ -304,8 +298,7 @@ void SessionReconstructor::accept(const Frame& f) {
       handle_marker(ds, dev, f);
       break;
     default:
-      // A known record owned by another subsystem. It still advances the
-      // session timeline, so it participates in ordering checks.
+
       track_monotonic(ds, f);
       break;
   }
@@ -375,8 +368,7 @@ std::string describe_session(const Session& s) {
     out += ", " + u32_dec(s.seq_regressions) + " seq / " +
            u32_dec(s.ts_regressions) + " ts regressions";
   }
-  // Surface the resume point of any reconnect that resumed from a checkpoint, as
-  // the frame position of the marker it anchored to.
+
   for (const ReconnectEvent& rc : s.reconnects) {
     if (!rc.resumed_from_checkpoint) continue;
     const MarkerEvent& anchor = s.markers[rc.resume_marker_index];
@@ -401,4 +393,4 @@ std::string describe_summary(const SessionSummary& s) {
   return out;
 }
 
-}  // namespace blackspan
+}

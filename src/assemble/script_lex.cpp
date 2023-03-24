@@ -12,28 +12,20 @@ namespace {
 
 bool is_space(char c) { return c == ' ' || c == '\t' || c == '\r'; }
 
-// True for the characters a bare (unquoted) argument value may contain. The set
-// is deliberately generous — it holds every printable character except the
-// whitespace that separates arguments, the '=' that splits a key from its
-// value, the '"' that opens a quoted value, and the '#' that opens a comment.
 bool is_bare_char(char c) {
   unsigned char u = static_cast<unsigned char>(c);
   if (u < 0x21 || u > 0x7e) return false;
   return c != '=' && c != '"' && c != '#';
 }
 
-// True for the characters a directive or argument name may contain.
 bool is_name_char(char c) {
   unsigned char u = static_cast<unsigned char>(c);
   return std::isalnum(u) != 0 || c == '-' || c == '_' || c == '.';
 }
 
-// Reads a double-quoted value starting at text[i] (which must be the opening
-// quote), appending the unescaped contents to out and leaving i just past the
-// closing quote. Recognizes \\ \" \n \r \t \0 and \xHH.
 bool read_quoted(const std::string& text, size_t& i, std::string& out,
                  AssembleError* err) {
-  ++i;  // opening quote
+  ++i;
   while (i < text.size()) {
     char c = text[i];
     if (c == '"') {
@@ -79,10 +71,9 @@ bool read_quoted(const std::string& text, size_t& i, std::string& out,
   return false;
 }
 
-// Reads one argument (bare, quoted, or key=value) at text[i].
 bool read_arg(const std::string& text, size_t& i, ScriptArg& out,
               AssembleError* err) {
-  // A leading quote makes the whole argument a positional string.
+
   if (text[i] == '"') return read_quoted(text, i, out.value, err);
 
   std::string first;
@@ -107,7 +98,7 @@ bool read_arg(const std::string& text, size_t& i, ScriptArg& out,
   return true;
 }
 
-}  // namespace
+}
 
 const char* assemble_error_str(AssembleError e) {
   switch (e) {
@@ -202,7 +193,7 @@ bool parse_uint(const std::string& s, uint64_t max, uint64_t& out) {
   uint64_t acc = 0;
   for (; i < s.size(); ++i) {
     char c = s[i];
-    if (c == '_') continue;  // digit grouping, e.g. 1_000
+    if (c == '_') continue;
     int digit;
     if (c >= '0' && c <= '9')
       digit = c - '0';
@@ -229,8 +220,7 @@ bool parse_int(const std::string& s, int64_t min, int64_t max, int64_t& out) {
   bool negative = s[0] == '-';
   std::string digits = negative ? s.substr(1) : s;
   uint64_t mag = 0;
-  // The magnitude of the most negative int64 does not fit in an int64, so parse
-  // into a uint64 first and only then apply the sign.
+
   if (!parse_uint(digits, negative ? 0x8000000000000000ull : INT64_MAX, mag)) {
     return false;
   }
@@ -312,4 +302,4 @@ bool parse_hex_bytes(const std::string& s, std::vector<uint8_t>& out) {
   return true;
 }
 
-}  // namespace blackspan
+}

@@ -39,7 +39,6 @@ static bool has(const ValidationReport& r, ValidationCode c) {
   return r.count_of(c) > 0;
 }
 
-// A clean, well-formed recording yields no errors or warnings.
 static void test_clean() {
   const char* script =
       "device 1\n"
@@ -63,7 +62,7 @@ static void test_clean() {
   CHECK(report.summary().warnings == 0);
   CHECK(report.summary().worst() == Severity3::Note ||
         report.summary().total() == 0);
-  // A declared-and-sampled channel is not flagged unused.
+
   CHECK(!has(report, ValidationCode::ChannelDeclaredUnused));
 }
 
@@ -77,7 +76,7 @@ static void test_empty_recording() {
 }
 
 static void test_truncated_and_halted() {
-  // Truncated: cut the last frame short -> Incomplete -> a warning.
+
   {
     const char* script =
         "device 1\n"
@@ -92,7 +91,7 @@ static void test_truncated_and_halted() {
     CHECK(has(report, ValidationCode::StreamTruncated));
     CHECK(!has(report, ValidationCode::StreamHalted));
   }
-  // Halted: a hard frame error mid-stream -> an error.
+
   {
     const char* script =
         "device 1\n"
@@ -115,8 +114,8 @@ static void test_unterminated_and_end_without_begin() {
       "device 1\n"
       "session 5\n"
       "ts 100\n"
-      "session-end reason=0\n"     // end with no begin
-      "session-begin label=open\n"  // never closed
+      "session-end reason=0\n"
+      "session-begin label=open\n"
       "marker text=x\n";
   std::vector<uint8_t> bytes;
   DecodedRecording rec;
@@ -124,17 +123,17 @@ static void test_unterminated_and_end_without_begin() {
   ValidationReport report = ValidationReport::run(rec);
   CHECK(has(report, ValidationCode::EndWithoutBegin));
   CHECK(has(report, ValidationCode::UnterminatedSession));
-  CHECK(report.summary().errors >= 1);  // end-without-begin is an error
+  CHECK(report.summary().errors >= 1);
 }
 
 static void test_regression_flags() {
-  // A frame whose ts and seq run backwards within a session.
+
   const char* script =
       "device 1\n"
       "session 10\n"
       "ts 1000\n"
       "session-begin label=r\n"
-      "marker text=a seq=5 ts=500\n"  // seq and ts both go backwards
+      "marker text=a seq=5 ts=500\n"
       "session-end reason=0 seq=11 ts=1100\n";
   std::vector<uint8_t> bytes;
   DecodedRecording rec;
@@ -160,7 +159,7 @@ static void test_channel_declared_unused() {
   if (!decode_script(script, bytes, rec)) return;
   ValidationReport report = ValidationReport::run(rec);
   CHECK(has(report, ValidationCode::ChannelDeclaredUnused));
-  // Only channel 2 is unused.
+
   CHECK(report.count_of(ValidationCode::ChannelDeclaredUnused) == 1);
 }
 
@@ -171,12 +170,12 @@ static void test_anomaly_notes() {
       "ts 100\n"
       "tick 10\n"
       "session-begin label=a\n"
-      // A fault before any transition -> fault-without-state note.
+
       "fault code=1 severity=warning\n"
       "state from=0 to=1 cause=1\n"
-      // A desync: from_state does not continue the chain.
+
       "state from=9 to=2 cause=1\n"
-      // A critical fault.
+
       "fault code=99 severity=critical\n"
       "session-end reason=0\n";
   std::vector<uint8_t> bytes;
@@ -188,7 +187,6 @@ static void test_anomaly_notes() {
   CHECK(has(report, ValidationCode::StateDesync));
   CHECK(has(report, ValidationCode::CriticalFault));
 
-  // With notes suppressed those disappear but warnings/errors remain.
   ValidationOptions no_notes;
   no_notes.include_notes = false;
   ValidationReport quiet = ValidationReport::run(rec, no_notes);
@@ -230,7 +228,6 @@ static void test_render_and_severity_order() {
   CHECK(a == b);
   CHECK(a.find("empty-recording") != std::string::npos);
 
-  // A clean recording renders the ok line.
   const char* clean =
       "device 1\n"
       "session 1\n"
@@ -245,7 +242,6 @@ static void test_render_and_severity_order() {
     CHECK(render_validation(r2) == "ok: no findings\n");
   }
 
-  // at_severity returns only the requested tier.
   for (const Finding* f : report.at_severity(Severity3::Warning)) {
     CHECK(f->severity == Severity3::Warning);
   }

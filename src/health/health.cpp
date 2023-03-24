@@ -7,25 +7,18 @@ namespace blackspan {
 
 namespace {
 
-// A baseline point is the average of a channel sample and the neighbours within
-// a length-proportional half-window. kMaxSmoothWindow bounds the scratch that
-// gathers those neighbours: past this many samples the moving average has fully
-// settled and a wider gather changes the baseline by less than rounding, so the
-// scratch is sized once to this cap and reused for every point.
 constexpr size_t kMaxSmoothWindow = 64;
 
-// Eighth-of-length half-window: a long recording is smoothed over a wider span so
-// the score reflects genuine transients rather than the raw sampling rate.
 size_t baseline_half_window(size_t n) { return n / 8; }
 
-}  // namespace
+}
 
 double volatility_score(const std::vector<double>& column) {
   const size_t n = column.size();
   if (n < 2) return 0.0;
 
   const size_t half = baseline_half_window(n);
-  std::vector<double> win(kMaxSmoothWindow);  // reused window-gather scratch
+  std::vector<double> win(kMaxSmoothWindow);
 
   double total_dev = 0.0;
   for (size_t i = 0; i < n; ++i) {
@@ -33,7 +26,6 @@ double volatility_score(const std::vector<double>& column) {
     const size_t hi = (i + half < n) ? i + half : n - 1;
     const size_t w = hi - lo + 1;
 
-    // Gather the window into the scratch, then reduce it to the baseline value.
     for (size_t j = 0; j < w; ++j) win[j] = column[lo + j];
     double sum = 0.0;
     for (size_t j = 0; j < w; ++j) sum += win[j];
@@ -76,4 +68,4 @@ std::string describe_health(const HealthFinding& f) {
   return out;
 }
 
-}  // namespace blackspan
+}

@@ -23,7 +23,6 @@ static int failures = 0;
 
 using FieldDef = std::pair<std::string, FieldType>;
 
-// Encodes a schema-def payload per the wire grammar.
 static std::vector<uint8_t> build_payload(uint16_t channel_id,
                                           uint8_t declared_version,
                                           const std::string& name,
@@ -95,12 +94,12 @@ static void test_layout_computation() {
       3, "imu",
       {{"ax", FieldType::F32}, {"ok", FieldType::U8}, {"seq", FieldType::U32},
        {"ts", FieldType::U64}, {"temp", FieldType::I16}});
-  // Packed, natural size, no padding.
-  CHECK(s.fields[0].offset == 0);   // f32
-  CHECK(s.fields[1].offset == 4);   // u8
-  CHECK(s.fields[2].offset == 5);   // u32
-  CHECK(s.fields[3].offset == 9);   // u64
-  CHECK(s.fields[4].offset == 17);  // i16
+
+  CHECK(s.fields[0].offset == 0);
+  CHECK(s.fields[1].offset == 4);
+  CHECK(s.fields[2].offset == 5);
+  CHECK(s.fields[3].offset == 9);
+  CHECK(s.fields[4].offset == 17);
   CHECK(s.stride == 19);
   CHECK(s.validate() == SchemaError::None);
 
@@ -133,7 +132,6 @@ static void test_validate_paths() {
                   {{"x", FieldType::U8}});
   CHECK(longname.validate() == SchemaError::NameTooLong);
 
-  // Stride bound: a small explicit max makes a valid layout exceed it.
   ChannelSchema wide = make_schema(1, "c", {{"a", FieldType::U64},
                                             {"b", FieldType::U64}});
   CHECK(wide.stride == 16);
@@ -154,7 +152,7 @@ static void test_decode_round_trip() {
   CHECK(r.declared_version == 7);
   CHECK(r.schema.channel_id == 42);
   CHECK(r.schema.name == "baro");
-  CHECK(r.schema.version == 0);  // unassigned until registered
+  CHECK(r.schema.version == 0);
   CHECK(r.schema.fields.size() == 4);
   CHECK(r.schema.fields[0].name == "altitude");
   CHECK(r.schema.fields[0].type == FieldType::F64);
@@ -169,24 +167,23 @@ static void test_decode_errors() {
   const std::vector<FieldDef> ok_fields = {{"x", FieldType::U16},
                                            {"y", FieldType::U16}};
 
-  // Truncated header (fewer than 5 fixed bytes).
   {
     const std::vector<uint8_t> p = {1, 0, 0};
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::Truncated);
   }
-  // Empty / null payload.
+
   {
     const auto r = decode_channel_schema(nullptr, 0);
     CHECK(r.error == SchemaError::Truncated);
   }
-  // Zero fields.
+
   {
     const auto p = build_payload(1, 0, "c", {});
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::ZeroFields);
   }
-  // Channel name too long: declared length exceeds the cap.
+
   {
     ByteWriter w;
     w.u16(1);
@@ -196,20 +193,20 @@ static void test_decode_errors() {
     const auto r = decode_channel_schema(w.buf().data(), w.buf().size());
     CHECK(r.error == SchemaError::NameTooLong);
   }
-  // Bad field type byte.
+
   {
     auto p = build_payload(1, 0, "c", {{"x", FieldType::U8}});
-    p[6] = 99;  // first field's type byte (5-byte header + 1-byte name "c")
+    p[6] = 99;
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::BadFieldType);
   }
-  // Empty field name.
+
   {
     const auto p = build_payload(1, 0, "c", {{"", FieldType::U8}});
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::EmptyName);
   }
-  // Field name too long.
+
   {
     ByteWriter w;
     w.u16(1);
@@ -222,21 +219,21 @@ static void test_decode_errors() {
     const auto r = decode_channel_schema(w.buf().data(), w.buf().size());
     CHECK(r.error == SchemaError::NameTooLong);
   }
-  // Duplicate field names.
+
   {
     const auto p = build_payload(1, 0, "c", {{"a", FieldType::U8},
                                              {"a", FieldType::U8}});
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::DuplicateFieldName);
   }
-  // Truncated mid-field: drop the trailing bytes of the last field.
+
   {
     auto p = build_payload(1, 0, "c", ok_fields);
     p.resize(p.size() - 2);
     const auto r = decode_channel_schema(p.data(), p.size());
     CHECK(r.error == SchemaError::Truncated);
   }
-  // Trailing bytes after a complete definition.
+
   {
     auto p = build_payload(1, 0, "c", ok_fields);
     p.push_back(0xFF);
@@ -260,13 +257,11 @@ static void test_registry_versioning() {
   CHECK(reg.contains(10));
   CHECK(!reg.contains(11));
 
-  // Re-registering an identical layout is a no-op returning the existing entry.
   const ChannelSchema* again = reg.register_schema(a);
   CHECK(again == v1);
   CHECK(again->version == 1);
   CHECK(reg.total_versions() == 1);
 
-  // A different layout bumps the version and keeps history.
   const ChannelSchema b = make_schema(10, "gps", {{"lat", FieldType::F64},
                                                   {"lon", FieldType::F64},
                                                   {"fix", FieldType::U8}});
@@ -281,20 +276,18 @@ static void test_registry_versioning() {
 
   CHECK(reg.latest(10) == v2);
   CHECK(reg.get(10, 1) != nullptr);
-  CHECK(reg.get(10, 1)->fields.size() == 2);  // old layout preserved
+  CHECK(reg.get(10, 1)->fields.size() == 2);
   CHECK(reg.get(10, 2)->fields.size() == 3);
   CHECK(reg.get(10, 3) == nullptr);
   CHECK(reg.get(99, 1) == nullptr);
   CHECK(reg.latest(99) == nullptr);
   CHECK(reg.versions(99).empty());
 
-  // A second channel; channels() is ascending.
   reg.register_schema(make_schema(5, "power", {{"v", FieldType::U16}}));
   CHECK(reg.count() == 2);
   const auto chans = reg.channels();
   CHECK(chans.size() == 2 && chans[0] == 5 && chans[1] == 10);
 
-  // An invalid schema is rejected without touching the registry.
   ChannelSchema bad = make_schema(7, "x", {{"", FieldType::U8}});
   SchemaError bad_err = SchemaError::None;
   CHECK(reg.register_schema(bad, &bad_err) == nullptr);
@@ -316,19 +309,16 @@ static void test_ingest_frame() {
   CHECK(reg.contains(21));
   CHECK(reg.latest(21)->fields.size() == 2);
 
-  // Wrong record type is rejected.
   Frame other;
   other.header.type = RecordType::SampleBlock;
   other.payload = payload;
   CHECK(reg.ingest_frame(other) == SchemaError::NotSchemaFrame);
 
-  // A malformed schema payload surfaces the decode error.
   Frame broken;
   broken.header.type = RecordType::SchemaDef;
   broken.payload = {1, 0, 0};
   CHECK(reg.ingest_frame(broken) == SchemaError::Truncated);
 
-  // A full frame encode/decode round trip feeds ingest_frame from the wire.
   std::vector<uint8_t> wire;
   encode_frame(f, wire);
   Frame decoded;
@@ -357,16 +347,16 @@ static void test_sample_view() {
   std::memcpy(&f64bits, &f64v, 8);
 
   ByteWriter w;
-  w.u8(200);                                          // a: u8
-  w.u8(0xFB);                                         // b: i8 = -5
-  w.u16(60000);                                       // c: u16
-  w.u16(static_cast<uint16_t>(-1000));                // d: i16
-  w.u32(4000000000u);                                 // e: u32
-  w.u32(static_cast<uint32_t>(-123456));              // f: i32
-  w.u64(0x0102030405060708ull);                       // g: u64
-  w.u64(static_cast<uint64_t>(-9000000000LL));        // h: i64
-  w.u32(f32bits);                                     // i: f32
-  w.u64(f64bits);                                     // j: f64
+  w.u8(200);
+  w.u8(0xFB);
+  w.u16(60000);
+  w.u16(static_cast<uint16_t>(-1000));
+  w.u32(4000000000u);
+  w.u32(static_cast<uint32_t>(-123456));
+  w.u64(0x0102030405060708ull);
+  w.u64(static_cast<uint64_t>(-9000000000LL));
+  w.u32(f32bits);
+  w.u64(f64bits);
   const std::vector<uint8_t>& buf = w.buf();
   CHECK(buf.size() == s.stride);
 
@@ -385,7 +375,6 @@ static void test_sample_view() {
   CHECK(sv.get_f32(8) && *sv.get_f32(8) == -3.5f);
   CHECK(sv.get_f64(9) && *sv.get_f64(9) == 2.5);
 
-  // get_as_double widens every type, preserving signedness.
   CHECK(sv.get_as_double(0) && *sv.get_as_double(0) == 200.0);
   CHECK(sv.get_as_double(1) && *sv.get_as_double(1) == -5.0);
   CHECK(sv.get_as_double(3) && *sv.get_as_double(3) == -1000.0);
@@ -394,12 +383,10 @@ static void test_sample_view() {
   CHECK(sv.get_as_double(8) && *sv.get_as_double(8) == -3.5);
   CHECK(sv.get_as_double(9) && *sv.get_as_double(9) == 2.5);
 
-  // Type mismatch is rejected.
-  CHECK(!sv.get_u32(0));   // field 0 is u8
-  CHECK(!sv.get_f64(8));   // field 8 is f32
-  CHECK(!sv.get_i16(2));   // field 2 is u16
+  CHECK(!sv.get_u32(0));
+  CHECK(!sv.get_f64(8));
+  CHECK(!sv.get_i16(2));
 
-  // Out-of-range field index.
   CHECK(!sv.get_u8(10));
   CHECK(!sv.get_as_double(10));
   CHECK(!sv.get_u8(1000));
@@ -409,18 +396,16 @@ static void test_sample_view_short_span() {
   const ChannelSchema s = make_schema(
       1, "s", {{"a", FieldType::U8}, {"b", FieldType::U16},
                {"c", FieldType::U32}});
-  CHECK(s.stride == 7);  // 1 + 2 + 4
+  CHECK(s.stride == 7);
 
-  // A span shorter than the stride: only fields fully inside it read back.
-  const std::vector<uint8_t> buf = {0x11, 0x22, 0x33};  // 3 bytes
+  const std::vector<uint8_t> buf = {0x11, 0x22, 0x33};
   SampleView sv(s, buf.data(), buf.size());
   CHECK(!sv.complete());
-  CHECK(sv.get_u8(0) && *sv.get_u8(0) == 0x11);        // offset 0, size 1
-  CHECK(sv.get_u16(1) && *sv.get_u16(1) == 0x3322);    // offset 1, size 2
-  CHECK(!sv.get_u32(2));                               // offset 3, size 4 > 3
+  CHECK(sv.get_u8(0) && *sv.get_u8(0) == 0x11);
+  CHECK(sv.get_u16(1) && *sv.get_u16(1) == 0x3322);
+  CHECK(!sv.get_u32(2));
   CHECK(!sv.get_as_double(2));
 
-  // An empty span rejects everything safely.
   SampleView empty(s, nullptr, 0);
   CHECK(!empty.complete());
   CHECK(!empty.get_u8(0));

@@ -19,8 +19,6 @@ static int failures = 0;
     }                                                           \
   } while (0)
 
-// Holds a recording's bytes alongside its decoded model so the model's borrowed
-// pointers stay valid for the lifetime of the test.
 struct Decoded {
   std::vector<uint8_t> bytes;
   DecodedRecording rec;
@@ -164,7 +162,6 @@ static void test_session_added_removed() {
   if (diff) CHECK(diff->side == DiffSide::RightOnly);
   CHECK(d.summary().right_only >= 1);
 
-  // Swapping the operands flips the side.
   RecordingDiff back = RecordingDiff::compare(b.rec, a.rec);
   const Difference* rev = find_key(back, "device 00000001 session #1");
   if (rev) CHECK(rev->side == DiffSide::LeftOnly);
@@ -236,7 +233,7 @@ static void test_session_fingerprint_change() {
       "  row 20\n"
       "end\n"
       "fault code=1 severity=warning\n"
-      "session-end reason=7\n";  // different end reason
+      "session-end reason=7\n";
   Decoded a, b;
   if (!load(kBase, a) || !load(diff_reason, b)) return;
   RecordingDiff d = RecordingDiff::compare(a.rec, b.rec);

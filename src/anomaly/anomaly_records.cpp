@@ -63,8 +63,6 @@ DecodeStatus decode_fault(const uint8_t* data, size_t len, Fault& out) {
   out.severity = severity_from_byte(sev);
   if (!r.ok()) return DecodeStatus::Truncated;
 
-  // Copy min(declared, available) detail bytes and report whether the full
-  // declared length was present.
   const size_t want = static_cast<size_t>(detail_len);
   if (r.remaining() < want) {
     const size_t have = r.remaining();
@@ -77,4 +75,4 @@ DecodeStatus decode_fault(const uint8_t* data, size_t len, Fault& out) {
   return DecodeStatus::Ok;
 }
 
-}  // namespace blackspan
+}

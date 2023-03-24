@@ -1,10 +1,3 @@
-// assemble: parses a recording script and decodes what it encodes.
-//
-// The whole input is treated as script text (the .bsr language the CLI's
-// assemble command accepts). assemble_script lexes and encodes it into a
-// recording; on success the harness decodes those bytes back through the full
-// pipeline, so the encoder and decoder are exercised as a round trip and any
-// frame the assembler can emit is guaranteed to be one the decoder accepts.
 #include <cstddef>
 #include <cstdint>
 #include <string>

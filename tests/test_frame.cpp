@@ -66,7 +66,7 @@ static void test_corrupt_header_crc() {
   std::vector<uint8_t> payload = {9, 9, 9};
   std::vector<uint8_t> wire;
   encode_frame(h, payload.data(), payload.size(), wire);
-  wire[5] ^= 0xFF;  // corrupt the record-type byte, covered by header CRC
+  wire[5] ^= 0xFF;
   Frame f;
   size_t consumed = 0;
   CHECK(decode_frame(wire.data(), wire.size(), f, &consumed) ==
@@ -79,7 +79,7 @@ static void test_corrupt_payload_crc() {
   std::vector<uint8_t> payload = {1, 2, 3, 4};
   std::vector<uint8_t> wire;
   encode_frame(h, payload.data(), payload.size(), wire);
-  wire[kFrameHeaderSize + 1] ^= 0xFF;  // corrupt a payload byte
+  wire[kFrameHeaderSize + 1] ^= 0xFF;
   Frame f;
   size_t consumed = 0;
   CHECK(decode_frame(wire.data(), wire.size(), f, &consumed) ==

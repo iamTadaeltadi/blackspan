@@ -22,7 +22,7 @@ const char* stats_error_str(StatsError e) {
 
 ColumnStats compute_stats(const std::vector<double>& values) {
   ColumnStats s;
-  if (values.empty()) return s;  // valid stays false; members stay zero
+  if (values.empty()) return s;
 
   double sum = 0.0;
   double lo = values[0];
@@ -36,8 +36,6 @@ ColumnStats compute_stats(const std::vector<double>& values) {
   const double n = static_cast<double>(values.size());
   const double mean = sum / n;
 
-  // Second pass over the deviations keeps the variance stable and avoids the
-  // catastrophic cancellation of a sum-of-squares formula.
   double sq_dev = 0.0;
   for (const double v : values) {
     const double d = v - mean;
@@ -72,4 +70,4 @@ StatsError compute_column_stats(const ChannelStore& store, uint16_t channel_id,
   return StatsError::None;
 }
 
-}  // namespace blackspan
+}

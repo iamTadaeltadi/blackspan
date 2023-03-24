@@ -10,30 +10,22 @@ namespace blackspan {
 
 namespace {
 
-// Locale-independent "%.6g" formatting of a double, matching the numeric form
-// the report and JSON renderers use so a value reads identically across every
-// output. Non-finite values render as "nan"/"inf"/"-inf".
 std::string fmt_g(double v) {
   char b[32];
   std::snprintf(b, sizeof(b), "%.6g", v);
-  // Guard against a locale that emits a comma as the decimal separator so the
-  // comma can never be mistaken for a CSV delimiter.
+
   for (char* p = b; *p; ++p) {
     if (*p == ',') *p = '.';
   }
   return std::string(b);
 }
 
-// 8-hex-digit device id, matching the "%08x" form the domain describe_* helpers
-// use so device ids read identically everywhere.
 std::string device_hex(uint32_t v) {
   char b[16];
   std::snprintf(b, sizeof(b), "%08x", v);
   return std::string(b);
 }
 
-// Lowercase hex of a byte span with no separators, e.g. {0xDE,0xAD} -> "dead".
-// Deterministic and free of any delimiter or line break.
 std::string hex_bytes(const std::vector<uint8_t>& bytes) {
   std::string out;
   out.reserve(bytes.size() * 2);
@@ -45,10 +37,6 @@ std::string hex_bytes(const std::vector<uint8_t>& bytes) {
   return out;
 }
 
-// Appends one already-computed row of fields, quoting each for the format and
-// terminating the row with a single '\n'. Applying quote_field uniformly (even
-// to numeric cells, which never contain special characters) keeps the row
-// structure sound regardless of a field's contents.
 void append_row(std::string& out, DelimFormat fmt,
                 const std::vector<std::string>& fields) {
   const char d = delim_char(fmt);
@@ -59,7 +47,7 @@ void append_row(std::string& out, DelimFormat fmt,
   out += '\n';
 }
 
-}  // namespace
+}
 
 const char* table_export_error_str(TableExportError e) {
   switch (e) {
@@ -90,13 +78,13 @@ std::string quote_field(const std::string& field, DelimFormat fmt) {
     out.reserve(field.size() + 2);
     out += '"';
     for (char c : field) {
-      if (c == '"') out += '"';  // double an internal quote per RFC 4180
+      if (c == '"') out += '"';
       out += c;
     }
     out += '"';
     return out;
   }
-  // Tsv: escape backslash first, then the characters that would break a cell.
+
   std::string out;
   out.reserve(field.size());
   for (char c : field) {
@@ -128,8 +116,7 @@ TableExportError export_channel_delimited(const ChannelStore& store,
   out.clear();
   const ChannelSeries* series = store.series(channel_id);
   if (series == nullptr) return TableExportError::UnknownChannel;
-  // Resolve the field names from the registry version the series is pinned to,
-  // falling back to the series' borrowed schema if the registry lacks it.
+
   const ChannelSchema* schema = schemas.get(channel_id, series->schema_version());
   if (schema == nullptr) schema = &series->schema();
   if (schema->fields.empty()) return TableExportError::BadField;
@@ -145,8 +132,6 @@ TableExportError export_channel_delimited(const ChannelStore& store,
   std::vector<std::string> row;
   row.reserve(field_count + 2);
 
-  // Walk the series block by block so each sample carries its block's base
-  // timestamp; the global sample index runs continuously across blocks.
   size_t index = 0;
   for (size_t b = 0; b < series->block_count(); ++b) {
     const uint16_t count = series->block_sample_count(b);
@@ -245,7 +230,7 @@ TableExportError export_channel_ndjson(const ChannelStore& store,
     const uint64_t base_ts = series->block_base_ts(b);
     for (uint16_t j = 0; j < count; ++j, ++index) {
       const std::optional<SampleView> view = series->view(index);
-      // A fresh writer per line keeps each object self-contained and compact.
+
       JsonWriter w;
       w.begin_object();
       w.key("index");
@@ -256,8 +241,7 @@ TableExportError export_channel_ndjson(const ChannelStore& store,
         w.key(schema->fields[f].name);
         std::optional<double> value;
         if (view.has_value()) value = view->get_as_double(f);
-        // double_value renders a non-finite value (including a missing field)
-        // as JSON null, keeping every line well-formed.
+
         w.double_value(value.has_value() ? *value
                                          : std::numeric_limits<double>::quiet_NaN());
       }
@@ -302,4 +286,4 @@ TableExportError export_faults_ndjson(const AnomalyEngine& anomalies,
   return TableExportError::None;
 }
 
-}  // namespace blackspan
+}

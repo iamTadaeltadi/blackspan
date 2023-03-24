@@ -5,9 +5,6 @@ namespace blackspan {
 
 namespace {
 
-// Reads a length-prefixed byte string whose 1-byte length has already been
-// consumed. Copies min(declared, available) bytes into out and reports whether
-// the full declared length was present.
 PayloadStatus read_lp_string(ByteReader& r, uint8_t declared, std::string& out) {
   const size_t want = static_cast<size_t>(declared);
   if (r.remaining() < want) {
@@ -21,7 +18,7 @@ PayloadStatus read_lp_string(ByteReader& r, uint8_t declared, std::string& out) 
   return PayloadStatus::Ok;
 }
 
-}  // namespace
+}
 
 const char* payload_status_str(PayloadStatus s) {
   switch (s) {
@@ -82,4 +79,4 @@ PayloadStatus decode_marker(const uint8_t* data, size_t len, Marker& out) {
   return read_lp_string(r, text_len, out.text);
 }
 
-}  // namespace blackspan
+}

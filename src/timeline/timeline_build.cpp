@@ -7,10 +7,6 @@
 namespace blackspan {
 namespace {
 
-// Appends the events a single session contributes: its open and close, and the
-// checkpoints, reconnects, and markers attached to it. The session carries the
-// device id and its opening/closing frame positions; the attached records carry
-// their own payload fields but inherit the session's device.
 void collect_session_events(const Session& s, std::vector<TimelineEvent>& out) {
   {
     TimelineEvent e;
@@ -136,9 +132,7 @@ void collect_channel_events(const ChannelStore& channels,
     for (size_t b = 0; b < series->block_count(); ++b) {
       TimelineEvent e;
       e.monotonic_ts = series->block_base_ts(b);
-      // A sample block is not associated with a single frame sequence in the
-      // reconstructed model, so its session_seq is left at 0; ordering falls back
-      // to the timestamp, which the block does carry.
+
       e.device_id = 0;
       e.kind = TimelineKind::SampleBlock;
       e.channel_id = id;
@@ -166,7 +160,7 @@ bool passes(const TimelineEvent& e, const TimelineOptions& opts) {
   return true;
 }
 
-}  // namespace
+}
 
 const char* timeline_kind_name(TimelineKind k) {
   switch (k) {
@@ -207,8 +201,6 @@ Timeline Timeline::build(const std::vector<Session>& sessions,
     if (passes(e, opts)) tl.events_.push_back(std::move(e));
   }
 
-  // Stable sort by (timestamp, session sequence) so events at the same instant
-  // keep a deterministic order and interleaved devices merge correctly.
   std::stable_sort(tl.events_.begin(), tl.events_.end(),
                    [](const TimelineEvent& a, const TimelineEvent& b) {
                      if (a.monotonic_ts != b.monotonic_ts) {
@@ -244,7 +236,7 @@ std::vector<uint32_t> Timeline::devices() const {
 
 std::optional<std::pair<uint64_t, uint64_t>> Timeline::span() const {
   if (events_.empty()) return std::nullopt;
-  // Events are sorted by timestamp, so the ends bound the span.
+
   return std::make_pair(events_.front().monotonic_ts,
                         events_.back().monotonic_ts);
 }
@@ -271,7 +263,7 @@ std::vector<size_t> Timeline::density(uint64_t window_ns) const {
   for (const TimelineEvent& e : events_) {
     const uint64_t offset = e.monotonic_ts - start;
     size_t idx = static_cast<size_t>(offset / window_ns);
-    if (idx >= buckets) idx = buckets - 1;  // guard the exact-end sample
+    if (idx >= buckets) idx = buckets - 1;
     ++out[idx];
   }
   return out;
@@ -298,4 +290,4 @@ std::string render_timeline(const Timeline& tl) {
   return out;
 }
 
-}  // namespace blackspan
+}

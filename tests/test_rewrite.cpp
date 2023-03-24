@@ -30,7 +30,6 @@ static std::vector<uint8_t> assemble(const std::string& script) {
   return r.bytes;
 }
 
-// Counts the frames of a given record type in a recording.
 static size_t count_type(const std::vector<uint8_t>& bytes, RecordType want) {
   FrameStream fs(bytes.data(), bytes.size());
   Frame f;
@@ -77,7 +76,6 @@ static void test_slice_by_device() {
   CHECK(r.frames_in == count_frames(bytes));
   CHECK(r.frames_kept > 0);
 
-  // Every frame in the output belongs to device 1, and the output re-decodes.
   DecodedRecording rec;
   rec.decode(r.bytes.data(), r.bytes.size());
   CHECK(rec.final_status() == FrameStatus::Ok);
@@ -94,7 +92,7 @@ static void test_slice_by_type() {
   RewriteFilter filter;
   filter.types = {RecordType::Fault};
   RewriteResult r = rewrite_slice(bytes, filter);
-  CHECK(r.frames_kept == 2);  // one fault per device
+  CHECK(r.frames_kept == 2);
   CHECK(count_frames(r.bytes) == 2);
   CHECK(count_type(r.bytes, RecordType::Fault) == 2);
   CHECK(count_type(r.bytes, RecordType::SampleBlock) == 0);
@@ -103,7 +101,7 @@ static void test_slice_by_type() {
 static void test_slice_by_time() {
   std::vector<uint8_t> bytes = assemble(kMulti);
   RewriteFilter filter;
-  filter.since = 200;  // only device 2's frames start at ts 200
+  filter.since = 200;
   RewriteResult r = rewrite_slice(bytes, filter);
   FrameStream fs(r.bytes.data(), r.bytes.size());
   Frame f;
@@ -113,16 +111,15 @@ static void test_slice_by_time() {
 
 static void test_slice_empty_filter_is_identity_in_content() {
   std::vector<uint8_t> bytes = assemble(kMulti);
-  RewriteFilter filter;  // no constraints
+  RewriteFilter filter;
   RewriteResult r = rewrite_slice(bytes, filter);
   CHECK(r.frames_kept == r.frames_in);
-  // Re-encoding a valid recording reproduces it byte-for-byte.
+
   CHECK(r.bytes == bytes);
 }
 
 static void test_slice_preserves_crc_on_corrupt_tail() {
-  // A recording whose final frame is truncated: the slice keeps the good frames
-  // and reports Incomplete.
+
   std::string script =
       "device 1\n"
       "session 1\n"
@@ -133,15 +130,15 @@ static void test_slice_preserves_crc_on_corrupt_tail() {
   RewriteFilter filter;
   RewriteResult r = rewrite_slice(bytes, filter);
   CHECK(r.input_status == FrameStatus::Incomplete);
-  CHECK(r.frames_kept == 1);  // only the first marker decoded
+  CHECK(r.frames_kept == 1);
   DecodedRecording rec;
   rec.decode(r.bytes.data(), r.bytes.size());
-  CHECK(rec.final_status() == FrameStatus::Ok);  // the output is clean
+  CHECK(rec.final_status() == FrameStatus::Ok);
   CHECK(rec.frame_count() == 1);
 }
 
 static void test_merge_orders_by_timestamp() {
-  // Two single-device recordings whose timestamps interleave.
+
   std::vector<uint8_t> a = assemble(
       "device 1\n"
       "session 1\n"
@@ -162,7 +159,7 @@ static void test_merge_orders_by_timestamp() {
   std::vector<uint64_t> stamps;
   while (fs.next(f)) stamps.push_back(f.header.monotonic_ts);
   CHECK(stamps.size() == 4);
-  // Merged output is sorted by timestamp: 100, 200, 300, 400.
+
   for (size_t i = 1; i < stamps.size(); ++i) {
     CHECK(stamps[i - 1] <= stamps[i]);
   }
@@ -173,7 +170,7 @@ static void test_merge_orders_by_timestamp() {
 }
 
 static void test_merge_stable_on_equal_ts() {
-  // Frames sharing a timestamp keep input order (input 0 before input 1).
+
   std::vector<uint8_t> a = assemble(
       "device 1\n"
       "session 1\n"
@@ -189,7 +186,7 @@ static void test_merge_stable_on_equal_ts() {
   while (fs.next(f)) devs.push_back(f.header.device_id);
   CHECK(devs.size() == 2);
   if (devs.size() == 2) {
-    CHECK(devs[0] == 1 && devs[1] == 2);  // input 0's frame first
+    CHECK(devs[0] == 1 && devs[1] == 2);
   }
 }
 

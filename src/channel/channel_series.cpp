@@ -57,7 +57,7 @@ void ChannelSeries::append_block(const uint8_t* rows, size_t rows_len,
 }
 
 void ChannelSeries::compact_to(size_t keep_last_n) {
-  if (keep_last_n >= total_) return;  // nothing to drop
+  if (keep_last_n >= total_) return;
   if (keep_last_n == 0) {
     blocks_.clear();
     total_ = 0;
@@ -65,24 +65,21 @@ void ChannelSeries::compact_to(size_t keep_last_n) {
   }
 
   const size_t st = stride();
-  size_t drop = total_ - keep_last_n;  // leading samples to remove
-  size_t first_keep = 0;               // index of the first fully retained block
+  size_t drop = total_ - keep_last_n;
+  size_t first_keep = 0;
   for (; first_keep < blocks_.size(); ++first_keep) {
     Block& b = blocks_[first_keep];
     const size_t count = b.sample_count;
     if (count <= drop) {
-      drop -= count;  // whole block retired
+      drop -= count;
       continue;
     }
     if (drop > 0) {
-      // Reclaim the retired leading rows and return their capacity so retention
-      // actually bounds resident memory.
+
       b.bytes.erase(b.bytes.begin(),
                     b.bytes.begin() + static_cast<std::ptrdiff_t>(drop * st));
       b.bytes.shrink_to_fit();
-      // An anchor block sits on the recorder's keyframe grid and carries the
-      // authoritative sample count for that grid cell; every other block's
-      // count simply follows the rows it still holds.
+
       if (!(b.flags & kBlockAnchor)) {
         b.sample_count = static_cast<uint16_t>(count - drop);
       }
@@ -97,4 +94,4 @@ void ChannelSeries::compact_to(size_t keep_last_n) {
   total_ = keep_last_n;
 }
 
-}  // namespace blackspan
+}

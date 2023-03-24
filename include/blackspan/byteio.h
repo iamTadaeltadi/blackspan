@@ -7,9 +7,6 @@
 
 namespace blackspan {
 
-// Little-endian bounds-checked reader over a borrowed byte range. On any
-// short read the reader latches an error (ok() == false) and returns zero /
-// nullptr for subsequent reads.
 class ByteReader {
  public:
   ByteReader(const uint8_t* data, size_t len)
@@ -24,10 +21,8 @@ class ByteReader {
   uint32_t u32();
   uint64_t u64();
 
-  // Copies n bytes into out. Returns false (and latches error) if short.
   bool read_bytes(uint8_t* out, size_t n);
 
-  // Returns a pointer into the borrowed buffer and advances; nullptr if short.
   const uint8_t* take(size_t n);
 
   void skip(size_t n);
@@ -39,7 +34,6 @@ class ByteReader {
   bool ok_;
 };
 
-// Little-endian growable writer.
 class ByteWriter {
  public:
   void u8(uint8_t v);
@@ -57,6 +51,6 @@ class ByteWriter {
   std::vector<uint8_t> buf_;
 };
 
-}  // namespace blackspan
+}
 
-#endif  // BLACKSPAN_BYTEIO_H
+#endif

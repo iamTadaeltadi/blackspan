@@ -43,9 +43,6 @@ static ChannelSchema make_schema(uint16_t channel_id, const std::string& name,
   return s;
 }
 
-// The imu channel reused across the derive tests: a float, an unsigned counter,
-// a byte flag, a signed temperature, and a wide altitude (stride 19).
-// Field names/indices: ax=0, seq=1, ok=2, temp=3, alt=4.
 static ChannelSchema imu_schema(uint16_t channel_id = 3) {
   return make_schema(channel_id, "imu",
                      {{"ax", FieldType::F32}, {"seq", FieldType::U32},
@@ -111,7 +108,6 @@ static Frame make_block_frame(uint64_t monotonic_ts,
   return f;
 }
 
-// Encodes a derived-def payload per the wire grammar.
 static std::vector<uint8_t> build_derived_payload(uint16_t derived_id,
                                                   uint16_t primary_channel,
                                                   const std::string& name,
@@ -126,7 +122,6 @@ static std::vector<uint8_t> build_derived_payload(uint16_t derived_id,
   return w.buf();
 }
 
-// A binding that resolves a fixed table of bare (primary-channel) identifiers.
 static ExprBinding table_binding(
     const std::vector<std::pair<std::string, double>>& table) {
   return [table](const FieldReference& r) -> std::optional<double> {
@@ -138,7 +133,6 @@ static ExprBinding table_binding(
   };
 }
 
-// A binding used for pure-numeric expressions: no reference ever resolves.
 static ExprBinding no_fields() {
   return [](const FieldReference&) -> std::optional<double> {
     return std::nullopt;
@@ -155,14 +149,12 @@ static void test_decode_derived_def() {
   CHECK(rec.name == "accel_g");
   CHECK(rec.expr == "ax * 0.00125");
 
-  // Empty name and empty expr round-trip cleanly.
   const std::vector<uint8_t> q = build_derived_payload(7, 3, "", "");
   DerivedDefRecord rq;
   CHECK(decode_derived_def(q.data(), q.size(), rq) == DeriveError::None);
   CHECK(rq.derived_id == 7 && rq.primary_channel == 3);
   CHECK(rq.name.empty() && rq.expr.empty());
 
-  // Truncation at every boundary is reported, never crashes.
   DerivedDefRecord junk;
   CHECK(decode_derived_def(nullptr, 0, junk) == DeriveError::Truncated);
   for (size_t cut = 0; cut < p.size(); ++cut) {
@@ -170,7 +162,7 @@ static void test_decode_derived_def() {
     CHECK(decode_derived_def(t.data(), t.size(), junk) ==
           DeriveError::Truncated);
   }
-  // Trailing bytes after a complete record are tolerated (ignored).
+
   std::vector<uint8_t> extra = p;
   extra.push_back(0xAB);
   extra.push_back(0xCD);
@@ -186,13 +178,13 @@ static void test_precedence_and_unary() {
   CHECK(evaluate_expr_once("2 + 3 * 4", b).value == 14.0);
   CHECK(evaluate_expr_once("(2 + 3) * 4", b).value == 20.0);
   CHECK(evaluate_expr_once("2 * 3 + 4", b).value == 10.0);
-  CHECK(evaluate_expr_once("20 - 4 - 3", b).value == 13.0);   // left assoc
-  CHECK(evaluate_expr_once("100 / 5 / 2", b).value == 10.0);  // left assoc
+  CHECK(evaluate_expr_once("20 - 4 - 3", b).value == 13.0);
+  CHECK(evaluate_expr_once("100 / 5 / 2", b).value == 10.0);
   CHECK(evaluate_expr_once("-3 + 4", b).value == 1.0);
   CHECK(evaluate_expr_once("2 * -3", b).value == -6.0);
-  CHECK(evaluate_expr_once("--5", b).value == 5.0);       // double negation
+  CHECK(evaluate_expr_once("--5", b).value == 5.0);
   CHECK(evaluate_expr_once("-(2 + 3)", b).value == -5.0);
-  CHECK(evaluate_expr_once("+7", b).value == 7.0);        // unary plus
+  CHECK(evaluate_expr_once("+7", b).value == 7.0);
   CHECK(evaluate_expr_once("2 + 3 * 4 - 10 / 2", b).value == 9.0);
 
   const EvalOnceResult r = evaluate_expr_once("1.5e2 + 0.5", b);
@@ -218,7 +210,7 @@ static void test_functions() {
   CHECK(evaluate_expr_once("clamp(5, 0, 10)", b).value == 5.0);
   CHECK(evaluate_expr_once("clamp(-1, 0, 10)", b).value == 0.0);
   CHECK(evaluate_expr_once("clamp(20, 0, 10)", b).value == 10.0);
-  // Nested calls and mixed arithmetic.
+
   CHECK(evaluate_expr_once("max(abs(-4), min(2, 9))", b).value == 4.0);
   CHECK(evaluate_expr_once("clamp(sqrt(16) + 1, 0, 4)", b).value == 4.0);
 }
@@ -228,12 +220,11 @@ static void test_div_by_zero_nan() {
   CHECK(std::isnan(evaluate_expr_once("1 / 0", b).value));
   CHECK(std::isnan(evaluate_expr_once("0 / 0", b).value));
   CHECK(std::isnan(evaluate_expr_once("(3 + 4) / (2 - 2)", b).value));
-  // A zero divisor is not a failure: the parse and bind both succeed.
+
   const EvalOnceResult r = evaluate_expr_once("5 / 0", b);
   CHECK(r.ok());
   CHECK(std::isnan(r.value));
 
-  // Division by a field that happens to be zero also yields NaN.
   const ExprBinding fb = table_binding({{"num", 5.0}, {"den", 0.0}});
   CHECK(std::isnan(evaluate_expr_once("num / den", fb).value));
 }
@@ -244,7 +235,6 @@ static void test_field_binding_helper() {
   CHECK(r.ok());
   CHECK(r.value == 800.0 * 0.00125 + 1.5);
 
-  // A reference the binding cannot resolve is reported, not crashed.
   const EvalOnceResult miss = evaluate_expr_once("raw + gone", b);
   CHECK(!miss.ok());
   CHECK(miss.parse_error == ExprError::None);
@@ -283,15 +273,13 @@ static void test_parse_errors() {
     }
   }
 
-  // The reported position points into the source text.
   const ParseResult unb = parse_expr("(2 + 3");
   CHECK(unb.error == ExprError::UnbalancedParen);
-  CHECK(unb.position == 0);  // the unmatched '('
+  CHECK(unb.position == 0);
   const ParseResult trail = parse_expr("2 3");
   CHECK(trail.error == ExprError::TrailingTokens);
-  CHECK(trail.position == 2);  // the stray '3'
+  CHECK(trail.position == 2);
 
-  // A pathologically deep expression is refused, not crashed.
   std::string deep;
   for (int i = 0; i < 5000; ++i) deep.push_back('(');
   deep.push_back('1');
@@ -300,8 +288,6 @@ static void test_parse_errors() {
   CHECK(dr.error == ExprError::TooComplex);
 }
 
-// Builds a store with two imu blocks on channel 3: A=[0,1] at ts 1000 and
-// B=[2,3,4] at ts 2000 (5 samples total).
 static void seed_imu(SchemaRegistry& reg, ChannelStore& store) {
   reg.register_schema(imu_schema());
   store.ingest_frame(
@@ -344,12 +330,11 @@ static void test_engine_evaluate() {
         static_cast<double>(r.ax) * 0.00125 + static_cast<double>(r.seq);
     CHECK(out.values[static_cast<size_t>(i)] == expected);
   }
-  // Timestamps follow the primary blocks: A -> 1000, B -> 2000.
+
   CHECK(out.timestamps[0] == 1000 && out.timestamps[1] == 1000);
   CHECK(out.timestamps[2] == 2000 && out.timestamps[3] == 2000 &&
         out.timestamps[4] == 2000);
 
-  // A precedence-sensitive formula evaluated per sample.
   DerivedDefRecord def2;
   def2.derived_id = 2;
   def2.primary_channel = 3;
@@ -365,7 +350,6 @@ static void test_engine_evaluate() {
     CHECK(out2.values[static_cast<size_t>(i)] == expected);
   }
 
-  // A function over a field: clamp the altitude into [0, 0.6].
   DerivedDefRecord def3;
   def3.derived_id = 3;
   def3.primary_channel = 3;
@@ -385,8 +369,6 @@ static void test_div_by_zero_in_series() {
   ChannelStore store;
   seed_imu(reg, store);
 
-  // ok = i % 2, so even-indexed samples divide by zero -> NaN, and remain
-  // non-fatal for the definition as a whole.
   DeriveEngine eng;
   DerivedDefRecord def;
   def.derived_id = 10;
@@ -413,12 +395,12 @@ static void test_cross_channel() {
       make_schema(5, "power", {{"v", FieldType::U16}, {"cur", FieldType::I16}}));
 
   ChannelStore store;
-  // imu channel 3: two samples.
+
   CHECK(store.ingest_frame(
             make_block_frame(500, build_block_payload(3, 1, 0, 2, 0,
                                                       imu_rows(0, 2))),
             reg) == ChannelError::None);
-  // power channel 5: two samples (v, cur) = (10, -1), (20, -2).
+
   ByteWriter pw;
   pw.u16(10);
   pw.u16(static_cast<uint16_t>(-1));
@@ -444,8 +426,6 @@ static void test_cross_channel() {
     CHECK(out.values[static_cast<size_t>(i)] == expected);
   }
 
-  // A cross-channel reference to a channel shorter than the primary is an
-  // error for the definition. Compact power to one sample; imu still has two.
   CHECK(store.compact_channel(5, 1) == ChannelError::None);
   DerivedSeries out2;
   CHECK(eng.evaluate(1, store, out2) == DeriveError::ChannelTooShort);
@@ -458,18 +438,17 @@ static void test_eval_errors() {
   seed_imu(reg, store);
   DeriveEngine eng;
 
-  // An unknown bare identifier is only an error at evaluation time.
   {
     DerivedDefRecord def;
     def.derived_id = 1;
     def.primary_channel = 3;
     def.expr = "ax + missing";
-    CHECK(eng.register_def(def) == DeriveError::None);  // parses fine
+    CHECK(eng.register_def(def) == DeriveError::None);
     DerivedSeries out;
     CHECK(eng.evaluate(1, store, out) == DeriveError::UnknownFieldRef);
     CHECK(out.values.empty());
   }
-  // An unknown cross-channel id.
+
   {
     DerivedDefRecord def;
     def.derived_id = 2;
@@ -479,22 +458,22 @@ static void test_eval_errors() {
     DerivedSeries out;
     CHECK(eng.evaluate(2, store, out) == DeriveError::UnknownFieldRef);
   }
-  // Evaluating an unregistered id.
+
   {
     DerivedSeries out;
     CHECK(eng.evaluate(999, store, out) == DeriveError::UnknownId);
   }
-  // A primary channel with no series in the store.
+
   {
     DerivedDefRecord def;
     def.derived_id = 3;
-    def.primary_channel = 77;  // never ingested
+    def.primary_channel = 77;
     def.expr = "1 + 2";
     CHECK(eng.register_def(def) == DeriveError::None);
     DerivedSeries out;
     CHECK(eng.evaluate(3, store, out) == DeriveError::NoPrimaryChannel);
   }
-  // A malformed expression fails at registration with position info.
+
   {
     DerivedDefRecord def;
     def.derived_id = 4;
@@ -504,12 +483,12 @@ static void test_eval_errors() {
     size_t ppos = 0;
     CHECK(eng.register_def(def, &perr, &ppos) == DeriveError::ParseFailed);
     CHECK(perr == ExprError::UnexpectedToken);
-    CHECK(eng.get(4) == nullptr);  // not stored
+    CHECK(eng.get(4) == nullptr);
   }
-  // Registering the same id twice is refused.
+
   {
     DerivedDefRecord def;
-    def.derived_id = 1;  // already registered above
+    def.derived_id = 1;
     def.primary_channel = 3;
     def.expr = "seq";
     CHECK(eng.register_def(def) == DeriveError::DuplicateId);
@@ -525,18 +504,15 @@ static void test_ingest_frame_wire() {
   f.header.type = RecordType::DerivedDef;
   f.payload = build_derived_payload(42, 3, "temp_c", "temp * 0.1");
 
-  // Wrong record type is rejected.
   Frame wrong = f;
   wrong.header.type = RecordType::SampleBlock;
   DeriveEngine eng0;
   CHECK(eng0.ingest_frame(wrong) == DeriveError::NotDerivedDef);
 
-  // A truncated derived-def payload surfaces the decode error.
   Frame broken = f;
-  broken.payload = {1, 0, 2};  // stops inside the fixed header
+  broken.payload = {1, 0, 2};
   CHECK(eng0.ingest_frame(broken) == DeriveError::Truncated);
 
-  // A full frame encode/decode round trip feeds ingest_frame from the wire.
   std::vector<uint8_t> wire;
   encode_frame(f, wire);
   Frame decoded;
@@ -570,8 +546,7 @@ static void test_error_strings() {
 }
 
 static void test_empty_primary_series() {
-  // A primary channel with a series but zero retained samples evaluates to an
-  // empty (but successful) derived series.
+
   SchemaRegistry reg;
   ChannelStore store;
   seed_imu(reg, store);

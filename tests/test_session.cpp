@@ -19,8 +19,6 @@ static int failures = 0;
     }                                                                   \
   } while (0)
 
-// ---- recorder-stream builders -------------------------------------------
-
 static void put_frame(std::vector<uint8_t>& wire, RecordType type,
                       uint32_t dev, uint32_t seq, uint64_t ts,
                       const std::vector<uint8_t>& payload) {
@@ -80,8 +78,6 @@ static void put_marker(std::vector<uint8_t>& wire, uint32_t dev, uint32_t seq,
   put_frame(wire, RecordType::Marker, dev, seq, ts, w.buf());
 }
 
-// ---- diagnostic helpers ---------------------------------------------------
-
 static size_t count_diag(const SessionReconstructor& r, SessionDiagCode c) {
   size_t n = 0;
   for (const auto& d : r.diagnostics())
@@ -89,13 +85,11 @@ static size_t count_diag(const SessionReconstructor& r, SessionDiagCode c) {
   return n;
 }
 
-// ---- tests ----------------------------------------------------------------
-
 static void test_single_normal_session() {
   std::vector<uint8_t> wire;
   put_begin(wire, 0xABCD, 0, 1000, 42, 3, 7, 100, 0xDEADBEEF, "flight-01");
   put_marker(wire, 0xABCD, 1, 1100, 2, "takeoff");
-  // A record owned by another subsystem still flows through in order.
+
   put_frame(wire, RecordType::SampleBlock, 0xABCD, 2, 1200, {1, 2, 3});
   put_checkpoint(wire, 0xABCD, 3, 1300, 9, 4096);
   put_end(wire, 0xABCD, 4, 2000, 5);
@@ -164,7 +158,6 @@ static void test_multiple_devices_interleaved() {
   CHECK(r.sessions().size() == 3);
   CHECK(r.diagnostics().empty());
 
-  // Sessions are created in stream order: devA#0, devB#0, devA#1.
   const Session& a0 = r.sessions()[0];
   const Session& b0 = r.sessions()[1];
   const Session& a1 = r.sessions()[2];
@@ -236,9 +229,9 @@ static void test_begin_while_active() {
   const Session& first = r.sessions()[0];
   const Session& second = r.sessions()[1];
   CHECK(first.label == "first");
-  CHECK(!first.closed);              // auto-closed as unterminated
-  CHECK(first.duration_ns() == 0);   // duration only for properly closed
-  CHECK(first.end_seq == 1 && first.end_ts == 150);  // last observed record
+  CHECK(!first.closed);
+  CHECK(first.duration_ns() == 0);
+  CHECK(first.end_seq == 1 && first.end_ts == 150);
   CHECK(first.markers.size() == 1);
   CHECK(second.label == "second");
   CHECK(second.session_index == 1);
@@ -264,8 +257,8 @@ static void test_idle_records() {
 static void test_seq_regression() {
   std::vector<uint8_t> wire;
   put_begin(wire, 1, 100, 1000, 1, 0, 0, 0, 0, "s");
-  put_marker(wire, 1, 50, 1100, 0, "back");  // seq 50 < 100
-  put_marker(wire, 1, 60, 1200, 0, "fwd");   // seq 60 >= 50, no regression
+  put_marker(wire, 1, 50, 1100, 0, "back");
+  put_marker(wire, 1, 60, 1200, 0, "fwd");
   put_end(wire, 1, 200, 1300, 0);
 
   SessionReconstructor r;
@@ -281,7 +274,7 @@ static void test_seq_regression() {
 static void test_ts_regression() {
   std::vector<uint8_t> wire;
   put_begin(wire, 1, 0, 1000, 1, 0, 0, 0, 0, "s");
-  put_checkpoint(wire, 1, 1, 500, 7, 0);  // ts 500 < 1000
+  put_checkpoint(wire, 1, 1, 500, 7, 0);
   put_end(wire, 1, 2, 2000, 0);
 
   SessionReconstructor r;
@@ -309,7 +302,7 @@ static void test_unterminated_trailing() {
   const Session& open = r.sessions()[1];
   CHECK(!open.closed);
   CHECK(open.duration_ns() == 0);
-  CHECK(open.end_seq == 3 && open.end_ts == 40);  // last observed record
+  CHECK(open.end_seq == 3 && open.end_ts == 40);
   CHECK(count_diag(r, SessionDiagCode::UnterminatedSession) == 1);
 
   SessionSummary sum = r.summary();
@@ -326,7 +319,7 @@ static void test_unknown_record() {
   r.reconstruct(wire.data(), wire.size());
 
   CHECK(r.sessions().size() == 1);
-  CHECK(r.sessions()[0].closed);  // unknown record does not disturb the session
+  CHECK(r.sessions()[0].closed);
   CHECK(count_diag(r, SessionDiagCode::UnknownRecordInSession) == 1);
 }
 
@@ -386,7 +379,7 @@ static void test_decoders_round_trip() {
 }
 
 static void test_truncated_decoders() {
-  // Empty buffers.
+
   SessionBegin b;
   CHECK(decode_session_begin(nullptr, 0, b) == PayloadStatus::Truncated);
   SessionEnd e;
@@ -398,8 +391,6 @@ static void test_truncated_decoders() {
   Marker m;
   CHECK(decode_marker(nullptr, 0, m) == PayloadStatus::Truncated);
 
-  // Fixed fields present but declared label longer than available bytes:
-  // whatever is present is still captured.
   {
     ByteWriter w;
     w.u16(1);
@@ -407,20 +398,19 @@ static void test_truncated_decoders() {
     w.u8(0);
     w.u16(0);
     w.u32(0);
-    w.u8(10);  // claims 10 label bytes
+    w.u8(10);
     const char* lbl = "xy";
-    w.bytes(reinterpret_cast<const uint8_t*>(lbl), 2);  // only 2 present
+    w.bytes(reinterpret_cast<const uint8_t*>(lbl), 2);
     SessionBegin partial;
     CHECK(decode_session_begin(w.buf().data(), w.buf().size(), partial) ==
           PayloadStatus::Truncated);
     CHECK(partial.label == "xy");
   }
 
-  // Marker with a text_len longer than the bytes present.
   {
     ByteWriter w;
     w.u8(1);
-    w.u8(4);  // claims 4 text bytes
+    w.u8(4);
     const char* t = "z";
     w.bytes(reinterpret_cast<const uint8_t*>(t), 1);
     Marker partial;
@@ -429,7 +419,6 @@ static void test_truncated_decoders() {
     CHECK(partial.text == "z");
   }
 
-  // Checkpoint with only 5 of 8 bytes.
   {
     ByteWriter w;
     w.u32(1);
@@ -442,8 +431,7 @@ static void test_truncated_decoders() {
 }
 
 static void test_truncated_payload_through_reconstructor() {
-  // A session-begin whose label is truncated must still open a session and be
-  // flagged, never dropped.
+
   std::vector<uint8_t> wire;
   {
     ByteWriter w;
@@ -452,7 +440,7 @@ static void test_truncated_payload_through_reconstructor() {
     w.u8(0);
     w.u16(0);
     w.u32(0);
-    w.u8(8);  // claims 8 label bytes
+    w.u8(8);
     const char* lbl = "hi";
     w.bytes(reinterpret_cast<const uint8_t*>(lbl), 2);
     put_frame(wire, RecordType::SessionBegin, 1, 0, 100, w.buf());

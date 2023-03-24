@@ -8,7 +8,7 @@ namespace blackspan {
 
 namespace {
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-}  // namespace
+}
 
 double percentile(std::vector<double> values, double q) {
   if (values.empty() || std::isnan(q)) return kNaN;
@@ -18,12 +18,10 @@ double percentile(std::vector<double> values, double q) {
   std::sort(values.begin(), values.end());
   if (values.size() == 1) return values[0];
 
-  // Linear interpolation between the two order statistics that bracket the
-  // fractional rank q/100 * (n - 1).
   const double rank = (q / 100.0) * static_cast<double>(values.size() - 1);
   const double lo_pos = std::floor(rank);
   const size_t lo_index = static_cast<size_t>(lo_pos);
-  if (lo_index >= values.size() - 1) return values.back();  // rank == n-1
+  if (lo_index >= values.size() - 1) return values.back();
 
   const double frac = rank - lo_pos;
   const double a = values[lo_index];
@@ -38,11 +36,9 @@ double median(std::vector<double> values) {
 Histogram histogram(const std::vector<double>& values, size_t bucket_count,
                     std::optional<double> lo, std::optional<double> hi) {
   Histogram h;
-  if (bucket_count == 0) return h;  // empty buckets; nothing to bin into
+  if (bucket_count == 0) return h;
   h.buckets.assign(bucket_count, 0);
 
-  // Resolve either supplied edge; fall back to the data extent for an
-  // unsupplied one. With no data and no supplied edge, the edge is 0.
   double data_lo = 0.0;
   double data_hi = 0.0;
   if (!values.empty()) {
@@ -66,12 +62,12 @@ Histogram histogram(const std::vector<double>& values, size_t bucket_count,
       continue;
     }
     if (degenerate) {
-      // Every in-range value equals the single point lo == hi.
+
       ++h.buckets[0];
       continue;
     }
     size_t idx = static_cast<size_t>((x - h.lo) / h.bucket_width);
-    if (idx >= bucket_count) idx = bucket_count - 1;  // x == hi lands last
+    if (idx >= bucket_count) idx = bucket_count - 1;
     ++h.buckets[idx];
   }
   return h;
@@ -104,7 +100,7 @@ StatsError rate_of_change(const std::vector<double>& values,
     const double dt =
         static_cast<double>(timestamps[i + 1]) - static_cast<double>(timestamps[i]);
     if (dt == 0.0) {
-      out.push_back(kNaN);  // guard the zero-interval division
+      out.push_back(kNaN);
     } else {
       out.push_back((values[i + 1] - values[i]) / dt);
     }
@@ -112,4 +108,4 @@ StatsError rate_of_change(const std::vector<double>& values,
   return StatsError::None;
 }
 
-}  // namespace blackspan
+}

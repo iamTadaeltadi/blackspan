@@ -8,19 +8,12 @@
 
 namespace blackspan {
 
-// A stable-handle object pool. Handles carry a generation so that a handle to a
-// freed (and possibly reused) slot is rejected rather than silently aliasing a
-// different object. Objects live at stable heap addresses; only the small slot
-// table grows, so a handle's target pointer never moves for the object's life.
-//
-// The pool is non-copyable and non-movable: it owns heap objects and is meant
-// to be held in place as a subsystem member.
 template <typename T>
 class Pool {
  public:
   struct Handle {
     uint32_t index = 0;
-    uint32_t gen = 0;  // 0 == null handle
+    uint32_t gen = 0;
     bool valid() const { return gen != 0; }
     bool operator==(const Handle& o) const {
       return index == o.index && gen == o.gen;
@@ -58,7 +51,7 @@ class Pool {
     s.ptr = nullptr;
     s.alive = false;
     ++s.gen;
-    if (s.gen == 0) s.gen = 1;  // never reuse the null generation
+    if (s.gen == 0) s.gen = 1;
     free_list_.push_back(h.index);
     --live_;
     return true;
@@ -103,6 +96,6 @@ class Pool {
   size_t live_ = 0;
 };
 
-}  // namespace blackspan
+}
 
-#endif  // BLACKSPAN_POOL_H
+#endif

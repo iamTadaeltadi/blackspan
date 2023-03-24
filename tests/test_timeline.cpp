@@ -19,7 +19,6 @@ static int failures = 0;
     }                                                           \
   } while (0)
 
-// Assembles a script and decodes it, aborting the test on an assembly error.
 static bool decode_script(const std::string& script, std::vector<uint8_t>& bytes,
                           DecodedRecording& rec) {
   AssembleResult r = assemble_script(script);
@@ -41,19 +40,19 @@ static const char* kScript =
     "session 1\n"
     "ts 1000\n"
     "tick 100\n"
-    "session-begin class=1 fw=1.0.0 label=a\n"     // ts 1000
-    "schema id=1 name=m fields=v:u16\n"            // ts 1100
-    "state from=0 to=1 cause=1\n"                  // ts 1200
-    "samples channel=1 delta=0\n"                  // block ts 1300
+    "session-begin class=1 fw=1.0.0 label=a\n"
+    "schema id=1 name=m fields=v:u16\n"
+    "state from=0 to=1 cause=1\n"
+    "samples channel=1 delta=0\n"
     "  row 10\n"
     "  row 20\n"
     "end\n"
-    "config param=2 old=0 new=5\n"                 // ts 1400
-    "fault code=7 severity=error subsystem=1\n"    // ts 1500
-    "marker kind=1 text=note\n"                    // ts 1600
-    "checkpoint id=3 bytes=100\n"                  // ts 1700
-    "state from=1 to=0 cause=2\n"                  // ts 1800
-    "session-end reason=0\n";                      // ts 1900
+    "config param=2 old=0 new=5\n"
+    "fault code=7 severity=error subsystem=1\n"
+    "marker kind=1 text=note\n"
+    "checkpoint id=3 bytes=100\n"
+    "state from=1 to=0 cause=2\n"
+    "session-end reason=0\n";
 
 static void test_build_and_order() {
   std::vector<uint8_t> bytes;
@@ -61,8 +60,7 @@ static void test_build_and_order() {
   if (!decode_script(kScript, bytes, rec)) return;
 
   Timeline tl = Timeline::build(rec);
-  // begin, schema (not an event), transition, sampleblock, config, fault,
-  // marker, checkpoint, transition, end. Schema-def is not a timeline kind.
+
   CHECK(tl.count_of(TimelineKind::SessionBegin) == 1);
   CHECK(tl.count_of(TimelineKind::SessionEnd) == 1);
   CHECK(tl.count_of(TimelineKind::StateTransition) == 2);
@@ -73,7 +71,6 @@ static void test_build_and_order() {
   CHECK(tl.count_of(TimelineKind::SampleBlock) == 1);
   CHECK(tl.count_of(TimelineKind::Reconnect) == 0);
 
-  // Events are sorted by timestamp.
   const std::vector<TimelineEvent>& e = tl.events();
   for (size_t i = 1; i < e.size(); ++i) {
     CHECK(e[i - 1].monotonic_ts <= e[i].monotonic_ts);
@@ -86,7 +83,6 @@ static void test_build_and_order() {
     CHECK(span->second == 1900);
   }
 
-  // The fault event carries its severity and a state annotation.
   bool saw_fault = false;
   for (const TimelineEvent& ev : e) {
     if (ev.kind == TimelineKind::Fault) {
@@ -97,7 +93,6 @@ static void test_build_and_order() {
   }
   CHECK(saw_fault);
 
-  // The sample-block event names the channel and its sample count.
   bool saw_block = false;
   for (const TimelineEvent& ev : e) {
     if (ev.kind == TimelineKind::SampleBlock) {
@@ -118,7 +113,7 @@ static void test_kind_filter() {
   opts.kind_mask = timeline_kind_bit(TimelineKind::Fault) |
                    timeline_kind_bit(TimelineKind::StateTransition);
   Timeline tl = Timeline::build(rec, opts);
-  CHECK(tl.size() == 3);  // 1 fault + 2 transitions
+  CHECK(tl.size() == 3);
   for (const TimelineEvent& e : tl.events()) {
     CHECK(e.kind == TimelineKind::Fault ||
           e.kind == TimelineKind::StateTransition);
@@ -137,7 +132,7 @@ static void test_time_filter() {
   for (const TimelineEvent& e : tl.events()) {
     CHECK(e.monotonic_ts >= 1400 && e.monotonic_ts <= 1700);
   }
-  // config(1400), fault(1500), marker(1600), checkpoint(1700).
+
   CHECK(tl.size() == 4);
 }
 
@@ -183,14 +178,12 @@ static void test_window_and_density() {
   }
   CHECK(!win.empty());
 
-  // Span is 1000..1900 (900 ns); with a 300 ns window there are 4 buckets.
   std::vector<size_t> d = tl.density(300);
   CHECK(d.size() == 4);
   size_t total = 0;
   for (size_t c : d) total += c;
   CHECK(total == tl.size());
 
-  // A zero window and an empty timeline both yield an empty density.
   CHECK(tl.density(0).empty());
   Timeline empty;
   CHECK(empty.density(100).empty());
@@ -205,7 +198,7 @@ static void test_render() {
   Timeline tl = Timeline::build(rec);
   std::string a = render_timeline(tl);
   std::string b = render_timeline(tl);
-  CHECK(a == b);  // deterministic
+  CHECK(a == b);
   CHECK(a.find("events over ts 1000..1900") != std::string::npos);
   CHECK(a.find("fault") != std::string::npos);
 

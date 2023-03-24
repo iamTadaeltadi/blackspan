@@ -43,4 +43,4 @@ const char* channel_error_str(ChannelError e) {
   return "unknown";
 }
 
-}  // namespace blackspan
+}

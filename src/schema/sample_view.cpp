@@ -11,7 +11,7 @@ bool SampleView::read_raw(size_t field_index, FieldType expect,
   if (f.type != expect) return false;
   const size_t sz = field_type_size(f.type);
   if (sz == 0) return false;
-  if (f.offset > len_ || sz > len_ - f.offset) return false;  // short span
+  if (f.offset > len_ || sz > len_ - f.offset) return false;
 
   uint64_t v = 0;
   for (size_t i = 0; i < sz; ++i) {
@@ -133,4 +133,4 @@ std::optional<double> SampleView::get_as_double(size_t i) const {
   return std::nullopt;
 }
 
-}  // namespace blackspan
+}

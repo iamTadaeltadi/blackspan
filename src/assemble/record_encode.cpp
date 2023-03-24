@@ -10,8 +10,6 @@
 namespace blackspan {
 namespace {
 
-// Appends a length-prefixed string with a single-byte length, truncating at 255
-// bytes. The wire grammars that carry names all use this shape.
 void write_lp8(const std::string& s, ByteWriter& w) {
   size_t n = s.size() > 255 ? 255 : s.size();
   w.u8(static_cast<uint8_t>(n));
@@ -22,9 +20,6 @@ void flush(ByteWriter& w, std::vector<uint8_t>& out) {
   out.insert(out.end(), w.buf().begin(), w.buf().end());
 }
 
-// Writes a value of the given scalar type in little-endian order. The value
-// arrives widened: integers in `u` (already masked to the field width by the
-// caller's range check) and reals in `d`.
 void write_typed(FieldType t, uint64_t u, double d, ByteWriter& w) {
   switch (t) {
     case FieldType::U8:
@@ -59,8 +54,6 @@ void write_typed(FieldType t, uint64_t u, double d, ByteWriter& w) {
   }
 }
 
-// Inclusive range of a signed field type, used to reject a row value that would
-// silently wrap on the wire.
 void signed_range(FieldType t, int64_t& lo, int64_t& hi) {
   switch (t) {
     case FieldType::I8: lo = INT8_MIN; hi = INT8_MAX; break;
@@ -70,8 +63,6 @@ void signed_range(FieldType t, int64_t& lo, int64_t& hi) {
   }
 }
 
-// Recomputes the header CRC of the frame starting at frame_start, so that a
-// deliberate edit to a header field leaves the frame internally consistent.
 void reseal_header(std::vector<uint8_t>& bytes, size_t frame_start) {
   const uint16_t crc =
       crc16_ccitt(bytes.data() + frame_start, kFrameHeaderSize - 2);
@@ -80,7 +71,6 @@ void reseal_header(std::vector<uint8_t>& bytes, size_t frame_start) {
       static_cast<uint8_t>((crc >> 8) & 0xff);
 }
 
-// Largest value an unsigned field type can hold.
 uint64_t unsigned_max(FieldType t) {
   switch (t) {
     case FieldType::U8: return UINT8_MAX;
@@ -90,7 +80,7 @@ uint64_t unsigned_max(FieldType t) {
   }
 }
 
-}  // namespace
+}
 
 uint16_t ScriptSchemas::declare(const ChannelSchema& s) {
   std::vector<ChannelSchema>& history = channels_[s.channel_id];
@@ -306,8 +296,7 @@ bool apply_damage(std::vector<uint8_t>& bytes, size_t frame_start,
 
   switch (mode) {
     case DamageMode::HeaderCrc:
-      // The header CRC occupies the last two header bytes; flipping a bit makes
-      // the recomputed CRC disagree without changing any decoded field.
+
       bytes[frame_start + kFrameHeaderSize - 2] ^= 0xff;
       return true;
     case DamageMode::PayloadCrc:
@@ -317,16 +306,12 @@ bool apply_damage(std::vector<uint8_t>& bytes, size_t frame_start,
       bytes[frame_start] ^= 0xff;
       return true;
     case DamageMode::Version:
-      // Byte 4 follows the 4-byte magic and holds the format version. The
-      // header CRC is recomputed so the frame stays internally consistent and
-      // the decoder reaches its version check rather than stopping at the CRC.
+
       bytes[frame_start + 4] = 0xfe;
       reseal_header(bytes, frame_start);
       return true;
     case DamageMode::Length: {
-      // Overstate the declared payload length so the frame claims more bytes
-      // than the buffer holds. The length field sits at offset 24, and the
-      // header CRC is resealed for the same reason as Version.
+
       uint16_t claimed = static_cast<uint16_t>(kMaxPayload);
       bytes[frame_start + 24] = static_cast<uint8_t>(claimed & 0xff);
       bytes[frame_start + 25] = static_cast<uint8_t>((claimed >> 8) & 0xff);
@@ -343,5 +328,5 @@ bool apply_damage(std::vector<uint8_t>& bytes, size_t frame_start,
   return false;
 }
 
-}  // namespace assemble_detail
-}  // namespace blackspan
+}
+}

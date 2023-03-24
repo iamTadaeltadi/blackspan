@@ -6,10 +6,6 @@
 
 namespace blackspan {
 
-// ---------------------------------------------------------------------------
-// MemoryBackend
-// ---------------------------------------------------------------------------
-
 bool MemoryBackend::put(const std::string& id, const uint8_t* data,
                         size_t len) {
   std::vector<uint8_t> bytes;
@@ -37,16 +33,10 @@ std::vector<std::string> MemoryBackend::ids() const {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// FileBackend
-// ---------------------------------------------------------------------------
-
 namespace {
 
 namespace fs = std::filesystem;
 
-// Ids used for the on-disk layout must split into a two-character bucket and a
-// non-empty remainder and must not contain a path separator.
 bool is_storable_id(const std::string& id) {
   if (id.size() < 3) return false;
   for (const char c : id) {
@@ -55,7 +45,7 @@ bool is_storable_id(const std::string& id) {
   return true;
 }
 
-}  // namespace
+}
 
 FileBackend::FileBackend(std::string root) : root_(std::move(root)) {
   std::error_code ec;
@@ -73,7 +63,6 @@ bool FileBackend::put(const std::string& id, const uint8_t* data, size_t len) {
   fs::create_directories(object.parent_path(), ec);
   if (ec) return false;
 
-  // A process-unique temp name keeps concurrent puts from colliding.
   static uint64_t counter = 0;
   const fs::path tmp =
       fs::path(root_) / "tmp" / (id + "." + std::to_string(counter++) + ".tmp");
@@ -162,4 +151,4 @@ std::vector<std::string> FileBackend::ids() const {
   return out;
 }
 
-}  // namespace blackspan
+}

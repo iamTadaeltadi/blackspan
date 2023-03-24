@@ -31,8 +31,6 @@ static bool has(const std::string& hay, const std::string& needle) {
   return hay.find(needle) != std::string::npos;
 }
 
-// ---- recorder-stream builders -------------------------------------------
-
 static void put_frame(std::vector<uint8_t>& wire, RecordType type, uint32_t dev,
                       uint32_t seq, uint64_t ts,
                       const std::vector<uint8_t>& payload) {
@@ -116,8 +114,6 @@ static void put_fault(std::vector<uint8_t>& wire, uint32_t dev, uint32_t seq,
   put_frame(wire, RecordType::Fault, dev, seq, ts, w.buf());
 }
 
-// ---- channel/schema builders (mirrors tests/test_channel.cpp) ------------
-
 using FieldDef = std::pair<std::string, FieldType>;
 
 static ChannelSchema make_schema(uint16_t channel_id, const std::string& name,
@@ -135,7 +131,6 @@ static ChannelSchema make_schema(uint16_t channel_id, const std::string& name,
   return s;
 }
 
-// imu: ax(f32), seq(u32), ok(u8), temp(i16), alt(f64); stride 19.
 static ChannelSchema imu_schema() {
   return make_schema(3, "imu",
                      {{"ax", FieldType::F32}, {"seq", FieldType::U32},
@@ -182,30 +177,22 @@ static Frame block_frame(uint16_t channel_id, uint16_t version,
   return f;
 }
 
-// ---- a shared non-trivial model ------------------------------------------
-
-// A label carrying the three characters a well-formed renderer must escape: a
-// double quote, a backslash, and a newline.
 static const std::string kLabel = "a\"b\\c\nd";
 
-// Builds the session/anomaly recorder stream once. Device 0xABCD runs a short
-// flight: begin, a good transition, an error fault, a config change, a state
-// desync, a critical fault, a marker, a checkpoint, then a clean end.
 static std::vector<uint8_t> control_wire() {
   std::vector<uint8_t> wire;
   put_begin(wire, 0xABCD, 0, 1000, 42, 3, 7, 100, 0xDEADBEEF, kLabel);
   put_transition(wire, 0xABCD, 1, 1100, 0, 1, 0);
-  put_fault(wire, 0xABCD, 2, 1200, 0x10, 2, 5, {1, 2, 3});  // error, state 1
+  put_fault(wire, 0xABCD, 2, 1200, 0x10, 2, 5, {1, 2, 3});
   put_config(wire, 0xABCD, 3, 1250, 7, 1, 2);
-  put_transition(wire, 0xABCD, 4, 1300, 5, 2, 1);           // desync (5 != 1)
-  put_fault(wire, 0xABCD, 5, 1400, 0x11, 3, 6, {});         // critical, state 2
+  put_transition(wire, 0xABCD, 4, 1300, 5, 2, 1);
+  put_fault(wire, 0xABCD, 5, 1400, 0x11, 3, 6, {});
   put_marker(wire, 0xABCD, 6, 1450, 1, "mk");
   put_checkpoint(wire, 0xABCD, 7, 1480, 9, 4096);
   put_end(wire, 0xABCD, 8, 2000, 5);
   return wire;
 }
 
-// A holder so a ReportModel can borrow stable engine instances.
 struct Fixture {
   std::vector<uint8_t> wire;
   SessionReconstructor sessions;
@@ -222,13 +209,10 @@ struct Fixture {
     schemas.register_schema(
         make_schema(5, "power", {{"v", FieldType::U16}, {"i", FieldType::I16}}));
 
-    // imu: three real samples so column stats are meaningful.
     ByteWriter rows;
     for (int i = 0; i < 3; ++i) write_imu_row(rows, i);
     channels.ingest_frame(block_frame(3, 1, 3, 5000, rows.buf()), schemas);
 
-    // power: two samples, then compacted to zero so the channel exists with an
-    // empty column (exercises the "no stats" branch of the renderers).
     ByteWriter pw;
     pw.u16(10);
     pw.u16(static_cast<uint16_t>(-1));
@@ -248,11 +232,6 @@ struct Fixture {
   }
 };
 
-// ---- structural validators -----------------------------------------------
-
-// Verifies balanced, correctly-nested {} and [] outside of JSON strings, with
-// backslash escapes honored inside strings. A lightweight well-formedness proxy
-// that does not need a full parser.
 static bool json_structurally_ok(const std::string& s) {
   std::vector<char> want;
   bool in_str = false;
@@ -282,8 +261,6 @@ static bool json_structurally_ok(const std::string& s) {
   return want.empty() && !in_str && !esc;
 }
 
-// Counts { and } that sit outside quoted labels (dot labels are double-quoted,
-// with \" for an embedded quote) and reports whether they balance.
 static bool dot_braces_balanced(const std::string& s) {
   long depth = 0;
   bool in_str = false;
@@ -311,8 +288,6 @@ static bool dot_braces_balanced(const std::string& s) {
   return depth == 0 && !in_str;
 }
 
-// ---- tests ----------------------------------------------------------------
-
 static void test_escape_helpers() {
   std::string in = "a\"b\\c\n\t";
   in.push_back('\x01');
@@ -320,7 +295,6 @@ static void test_escape_helpers() {
 
   CHECK(escape_dot("x\"y\\z\n\tw") == "x\\\"y\\\\z\\n w");
 
-  // No-op inputs pass through unchanged.
   CHECK(escape_json("plain") == "plain");
   CHECK(escape_dot("plain") == "plain");
 }
@@ -359,7 +333,6 @@ static void test_json_writer_basic() {
         "\"z\":null,\"arr\":[1,2]}");
   CHECK(json_structurally_ok(out));
 
-  // Non-finite doubles degrade to null so the document stays well-formed.
   JsonWriter w2;
   w2.begin_array();
   w2.double_value(std::numeric_limits<double>::infinity());
@@ -372,17 +345,15 @@ static void test_text_render() {
   const std::string out = render_text(fx.model());
 
   CHECK(has(out, "blackspan report"));
-  // Sessions section: header + the reused describe_session line.
+
   CHECK(has(out, "Sessions (1)"));
   CHECK(has(out, "device 0000abcd"));
   CHECK(has(out, "session #0"));
   CHECK(has(out, "duration 1000ns"));
   CHECK(has(out, "1 checkpoints"));
 
-  // Schemas section lists both registered channels.
   CHECK(has(out, "Schemas (2)"));
 
-  // Channels section: imu with real stats, power with the empty-column dashes.
   CHECK(has(out, "Channels (2)"));
   CHECK(has(out, "channel 3 v1 \"imu\""));
   CHECK(has(out, "stride 19 samples 3"));
@@ -391,11 +362,10 @@ static void test_text_render() {
   CHECK(has(out, "samples 0"));
   CHECK(has(out, "min - max - mean -"));
 
-  // Anomalies section.
   CHECK(has(out, "Anomalies"));
   CHECK(has(out, "faults by severity: info 0, warning 0, error 1, critical 1"));
   CHECK(has(out, "state transitions (2)"));
-  CHECK(has(out, "3 -> 4") == false);  // sanity: no bogus transition text
+  CHECK(has(out, "3 -> 4") == false);
   CHECK(has(out, "(desync)"));
   CHECK(has(out, "state-desync device 0000abcd"));
 }
@@ -410,14 +380,12 @@ static void test_json_render() {
   CHECK(has(out, "\"channels\":["));
   CHECK(has(out, "\"anomalies\":{"));
 
-  // The label's " \\ and newline are correctly escaped in the JSON string.
   CHECK(has(out, "\"label\":\"a\\\"b\\\\c\\nd\""));
 
-  // Numeric stats round to the shared %.6g form.
   CHECK(has(out, "\"mean\":1.5"));
   CHECK(has(out, "\"min\":0"));
   CHECK(has(out, "\"max\":3"));
-  // Empty power column renders explicit nulls.
+
   CHECK(has(out, "\"min\":null,\"max\":null,\"mean\":null"));
 
   CHECK(has(out, "\"fault_counts\":{\"info\":0,\"warning\":0,\"error\":1,"
@@ -437,7 +405,7 @@ static void test_dot_render() {
   CHECK(has(out, "channel_5 [shape=ellipse"));
   CHECK(has(out, "state_0 -> state_1"));
   CHECK(has(out, "state_5 -> state_2 [label=\"cause 1\", style=dashed"));
-  // The escaped label appears; no raw newline survives into the graph.
+
   CHECK(has(out, "label=\"dev 0000abcd #0 a\\\"b\\\\c\\nd\""));
 }
 
@@ -448,7 +416,6 @@ static void test_determinism() {
   CHECK(render_json(m) == render_json(m));
   CHECK(render_dot(m) == render_dot(m));
 
-  // A freshly rebuilt fixture reconstructs byte-identical output.
   Fixture fx2;
   CHECK(render_json(fx2.model()) == render_json(m));
   CHECK(render_text(fx2.model()) == render_text(m));
@@ -458,7 +425,6 @@ static void test_determinism() {
 static void test_null_sections() {
   Fixture fx;
 
-  // Only sessions present: other sections omitted, no crash.
   ReportModel only_sessions;
   only_sessions.sessions = &fx.sessions.sessions();
   const std::string t = render_text(only_sessions);
@@ -479,7 +445,6 @@ static void test_null_sections() {
   CHECK(!has(d, "channel_"));
   CHECK(!has(d, "state_"));
 
-  // A fully-empty model renders a valid, empty document in every format.
   ReportModel empty;
   CHECK(render_text(empty) == "blackspan report\n================\n");
   CHECK(render_json(empty) == "{}");
@@ -493,7 +458,6 @@ static void test_section_mask_filtering() {
   Fixture fx;
   const ReportModel m = fx.model();
 
-  // Just the channels section.
   const std::string only_ch = render_text(m, kSectionChannels);
   CHECK(has(only_ch, "Channels ("));
   CHECK(!has(only_ch, "Sessions ("));
@@ -503,7 +467,6 @@ static void test_section_mask_filtering() {
   CHECK(has(j, "\"sessions\":["));
   CHECK(!has(j, "\"channels\""));
 
-  // No known bits set -> a document with no sections.
   CHECK(render_json(m, 0) == "{}");
   CHECK(render_text(m, 0) == "blackspan report\n================\n");
 }
@@ -518,24 +481,21 @@ static void test_dispatch_and_export_request() {
 
   CHECK(std::string(report_format_name(ReportFormat::Json)) == "json");
 
-  // format_from_byte.
   CHECK(format_from_byte(0).value() == ReportFormat::Text);
   CHECK(format_from_byte(1).value() == ReportFormat::Json);
   CHECK(format_from_byte(2).value() == ReportFormat::Dot);
   CHECK(!format_from_byte(3).has_value());
 
-  // Round-trip decode of a well-formed payload.
   {
     ByteWriter w;
-    w.u8(1);        // json
-    w.u16(0x0005);  // sessions | channels
+    w.u8(1);
+    w.u16(0x0005);
     ExportRequest req;
     CHECK(decode_export_request(w.buf().data(), w.buf().size(), req) ==
           ExportError::None);
     CHECK(req.format == ReportFormat::Json);
     CHECK(req.section_mask == 0x0005);
 
-    // render(model, request) honors the mask.
     const std::string r =
         render(m, req.format, req.section_mask ? req.section_mask : kSectionAll);
     CHECK(render(m, req) == r);
@@ -544,11 +504,9 @@ static void test_dispatch_and_export_request() {
     CHECK(!has(render(m, req), "\"anomalies\""));
   }
 
-  // A zero mask on the wire means "default": render(model, request) treats it
-  // as all sections.
   {
     ByteWriter w;
-    w.u8(0);  // text
+    w.u8(0);
     w.u16(0);
     ExportRequest req;
     CHECK(decode_export_request(w.buf().data(), w.buf().size(), req) ==
@@ -557,7 +515,6 @@ static void test_dispatch_and_export_request() {
     CHECK(render(m, req) == render_text(m, kSectionAll));
   }
 
-  // Truncation, bad format, and trailing bytes are distinct errors.
   {
     ExportRequest req;
     const uint8_t two[2] = {1, 0};

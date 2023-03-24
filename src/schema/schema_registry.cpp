@@ -17,7 +17,7 @@ const ChannelSchema* SchemaRegistry::register_schema(const ChannelSchema& s,
   if (!history.empty()) {
     const ChannelSchema& prev = history.back();
     if (prev.same_layout(canon)) {
-      return &prev;  // identical layout: no new version
+      return &prev;
     }
     canon.version = static_cast<uint16_t>(prev.version + 1);
   } else {
@@ -69,7 +69,7 @@ std::vector<uint16_t> SchemaRegistry::channels() const {
   std::vector<uint16_t> out;
   out.reserve(channels_.size());
   for (const auto& kv : channels_) out.push_back(kv.first);
-  return out;  // std::map iterates keys ascending
+  return out;
 }
 
 SchemaError SchemaRegistry::ingest_frame(const Frame& f) {
@@ -84,4 +84,4 @@ SchemaError SchemaRegistry::ingest_frame(const Frame& f) {
   return err;
 }
 
-}  // namespace blackspan
+}

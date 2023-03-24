@@ -23,27 +23,21 @@ static bool near(double a, double b, double eps = 1e-6) {
   return std::fabs(a - b) <= eps;
 }
 
-// A constant column has a baseline equal to every sample, so its volatility is 0.
 static void test_constant_is_quiet() {
   std::vector<double> col(8, 7.0);
   CHECK(near(volatility_score(col), 0.0));
 }
 
-// Too-short columns score 0 (no baseline to deviate from).
 static void test_degenerate() {
   CHECK(near(volatility_score({}), 0.0));
   CHECK(near(volatility_score({42.0}), 0.0));
 }
 
-// An eight-sample alternating column has a half-window of one; the mean absolute
-// deviation from the three-point moving average works out to 6.25 (hand-checked:
-// the two endpoints deviate by 5, the six interior points by 20/3 each).
 static void test_alternating_score() {
   std::vector<double> col = {0, 10, 0, 10, 0, 10, 0, 10};
   CHECK(near(volatility_score(col), 6.25, 1e-3));
 }
 
-// The scan visits every field of every channel and flags those above threshold.
 static void test_scan_over_store() {
   const char* script =
       "device 1\n"
@@ -76,11 +70,10 @@ static void test_scan_over_store() {
     CHECK(f.field_name == "v");
     CHECK(f.samples == 8);
     CHECK(near(f.score, 6.25, 1e-3));
-    CHECK(f.flagged);  // 6.25 > 1.0
+    CHECK(f.flagged);
     CHECK(!describe_health(f).empty());
   }
 
-  // A high threshold leaves the same field unflagged.
   std::vector<HealthFinding> quiet = channel_health_scan(rec.channels(), 100.0);
   CHECK(quiet.size() == 1);
   if (!quiet.empty()) CHECK(!quiet[0].flagged);

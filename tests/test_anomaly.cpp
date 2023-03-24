@@ -20,8 +20,6 @@ static int failures = 0;
     }                                                                   \
   } while (0)
 
-// ---- recorder-stream builders -------------------------------------------
-
 static void put_frame(std::vector<uint8_t>& wire, RecordType type, uint32_t dev,
                       uint32_t seq, uint64_t ts,
                       const std::vector<uint8_t>& payload) {
@@ -93,8 +91,6 @@ static size_t count_diag(const AnomalyEngine& e, AnomalyDiagCode c) {
   return n;
 }
 
-// ---- tests ----------------------------------------------------------------
-
 static void test_decoders_round_trip() {
   {
     const auto p = transition_payload(1, 2, 3, 4);
@@ -121,7 +117,7 @@ static void test_decoders_round_trip() {
 }
 
 static void test_decoders_truncation() {
-  // Empty buffers report truncation for every record type.
+
   StateTransition st;
   CHECK(decode_state_transition(nullptr, 0, st) == DecodeStatus::Truncated);
   ConfigChange cc;
@@ -129,7 +125,6 @@ static void test_decoders_truncation() {
   Fault fx;
   CHECK(decode_fault(nullptr, 0, fx) == DecodeStatus::Truncated);
 
-  // State-transition with only 3 of 6 bytes: the first field survives.
   {
     ByteWriter w;
     w.u16(0x1234);
@@ -139,7 +134,7 @@ static void test_decoders_truncation() {
           DecodeStatus::Truncated);
     CHECK(partial.from_state == 0x1234);
   }
-  // Config-change with only 5 of 10 bytes: param_id survives.
+
   {
     ByteWriter w;
     w.u16(77);
@@ -150,14 +145,13 @@ static void test_decoders_truncation() {
           DecodeStatus::Truncated);
     CHECK(partial.param_id == 77);
   }
-  // Fault whose detail_len claims more bytes than are present: whatever detail
-  // bytes exist are still captured.
+
   {
     ByteWriter w;
     w.u16(0xABCD);
-    w.u8(3);   // severity Critical
-    w.u8(5);   // subsystem
-    w.u8(10);  // claims 10 detail bytes
+    w.u8(3);
+    w.u8(5);
+    w.u8(10);
     const std::vector<uint8_t> present = {1, 2, 3};
     w.bytes(present);
     Fault partial;
@@ -166,7 +160,7 @@ static void test_decoders_truncation() {
     CHECK(partial.fault_code == 0xABCD && partial.severity == Severity::Critical);
     CHECK(partial.subsystem_id == 5 && partial.detail == present);
   }
-  // Fault truncated before the detail-length byte.
+
   {
     ByteWriter w;
     w.u16(0x1);
@@ -191,34 +185,34 @@ static void test_transition_chain_no_desync() {
   CHECK(count_diag(e, AnomalyDiagCode::StateDesync) == 0);
   CHECK(e.current_state(1).has_value() && e.current_state(1).value() == 3);
   for (const auto& t : e.transitions()) CHECK(t.continues_chain);
-  // An unseen device has no known state.
+
   CHECK(!e.current_state(999).has_value());
 }
 
 static void test_transition_chain_desync() {
   std::vector<uint8_t> wire;
   put_transition(wire, 1, 0, 100, 0, 1, 0);
-  put_transition(wire, 1, 1, 110, 5, 2, 0);  // from_state 5 != last to_state 1
+  put_transition(wire, 1, 1, 110, 5, 2, 0);
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
 
   CHECK(e.transitions().size() == 2);
   CHECK(count_diag(e, AnomalyDiagCode::StateDesync) == 1);
-  CHECK(e.transitions()[0].continues_chain == true);   // first continues
-  CHECK(e.transitions()[1].continues_chain == false);  // second broke chain
-  // The broken transition still advances the state to its to_state.
+  CHECK(e.transitions()[0].continues_chain == true);
+  CHECK(e.transitions()[1].continues_chain == false);
+
   CHECK(e.current_state(1).has_value() && e.current_state(1).value() == 2);
 }
 
 static void test_fault_state_tagging() {
   std::vector<uint8_t> wire;
-  // Fault before any transition: state unknown.
+
   put_fault(wire, 1, 0, 100, 0x10, 1, 0, {});
   put_transition(wire, 1, 1, 110, 0, 10, 0);
-  put_fault(wire, 1, 2, 120, 0x11, 2, 0, {});  // state 10
+  put_fault(wire, 1, 2, 120, 0x11, 2, 0, {});
   put_transition(wire, 1, 3, 130, 10, 20, 0);
-  put_fault(wire, 1, 4, 140, 0x12, 3, 0, {});  // state 20
+  put_fault(wire, 1, 4, 140, 0x12, 3, 0, {});
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
@@ -234,10 +228,10 @@ static void test_fault_state_tagging() {
 static void test_faults_in_state() {
   std::vector<uint8_t> wire;
   put_transition(wire, 1, 0, 100, 0, 7, 0);
-  put_fault(wire, 1, 1, 110, 0xA, 1, 0, {});  // state 7
-  put_fault(wire, 1, 2, 120, 0xB, 1, 0, {});  // state 7
+  put_fault(wire, 1, 1, 110, 0xA, 1, 0, {});
+  put_fault(wire, 1, 2, 120, 0xB, 1, 0, {});
   put_transition(wire, 1, 3, 130, 7, 9, 0);
-  put_fault(wire, 1, 4, 140, 0xC, 1, 0, {});  // state 9
+  put_fault(wire, 1, 4, 140, 0xC, 1, 0, {});
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
@@ -253,23 +247,23 @@ static void test_faults_in_state() {
 
 static void test_severity_counts_and_clamping() {
   std::vector<uint8_t> wire;
-  put_fault(wire, 1, 0, 100, 1, 0, 0, {});    // Info
-  put_fault(wire, 1, 1, 101, 2, 1, 0, {});    // Warning
-  put_fault(wire, 1, 2, 102, 3, 2, 0, {});    // Error
-  put_fault(wire, 1, 3, 103, 4, 3, 0, {});    // Critical
-  put_fault(wire, 1, 4, 104, 5, 200, 0, {});  // out-of-range -> Critical
+  put_fault(wire, 1, 0, 100, 1, 0, 0, {});
+  put_fault(wire, 1, 1, 101, 2, 1, 0, {});
+  put_fault(wire, 1, 2, 102, 3, 2, 0, {});
+  put_fault(wire, 1, 3, 103, 4, 3, 0, {});
+  put_fault(wire, 1, 4, 104, 5, 200, 0, {});
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
 
   const std::array<size_t, 4> counts = e.fault_count_by_severity();
-  CHECK(counts[0] == 1);  // Info
-  CHECK(counts[1] == 1);  // Warning
-  CHECK(counts[2] == 1);  // Error
-  CHECK(counts[3] == 2);  // Critical + clamped
-  // The clamped fault carries Critical.
+  CHECK(counts[0] == 1);
+  CHECK(counts[1] == 1);
+  CHECK(counts[2] == 1);
+  CHECK(counts[3] == 2);
+
   CHECK(e.faults()[4].severity == Severity::Critical);
-  // Direct clamp helper.
+
   CHECK(severity_from_byte(0) == Severity::Info);
   CHECK(severity_from_byte(3) == Severity::Critical);
   CHECK(severity_from_byte(255) == Severity::Critical);
@@ -277,13 +271,13 @@ static void test_severity_counts_and_clamping() {
 
 static void test_fault_burst() {
   std::vector<uint8_t> wire;
-  // Device 1: four faults clustered within 300ns, then a lone fault far away.
+
   put_fault(wire, 1, 0, 1000, 1, 2, 0, {});
   put_fault(wire, 1, 1, 1100, 1, 2, 0, {});
   put_fault(wire, 1, 2, 1200, 1, 2, 0, {});
   put_fault(wire, 1, 3, 1300, 1, 2, 0, {});
   put_fault(wire, 1, 4, 5000, 1, 2, 0, {});
-  // Device 2: four faults spread 1000ns apart -> never a burst.
+
   put_fault(wire, 2, 0, 1000, 1, 2, 0, {});
   put_fault(wire, 2, 1, 2000, 1, 2, 0, {});
   put_fault(wire, 2, 2, 3000, 1, 2, 0, {});
@@ -303,10 +297,8 @@ static void test_fault_burst() {
     CHECK(b.member_indices.size() == 4);
   }
 
-  // A wider min_count than the cluster size finds nothing.
   CHECK(e.burst_windows(500, 5).empty());
-  // A window wide enough to swallow device 1's lone late fault: its window now
-  // covers all five faults. (Device 2's spread also fits such a wide window.)
+
   const auto wide = e.burst_windows(5000, 3);
   bool found_dev1 = false;
   for (const auto& b : wide) {
@@ -320,13 +312,13 @@ static void test_fault_burst() {
 
 static void test_multi_device_independence() {
   std::vector<uint8_t> wire;
-  // Interleave two devices; each keeps its own state chain.
+
   put_transition(wire, 100, 0, 10, 0, 1, 0);
   put_transition(wire, 200, 0, 11, 0, 5, 0);
-  put_transition(wire, 100, 1, 12, 1, 2, 0);   // continues dev 100
-  put_transition(wire, 200, 1, 13, 9, 6, 0);   // desync on dev 200 only
-  put_fault(wire, 100, 2, 14, 0xA, 1, 0, {});  // dev 100 in state 2
-  put_fault(wire, 200, 2, 15, 0xB, 1, 0, {});  // dev 200 in state 6
+  put_transition(wire, 100, 1, 12, 1, 2, 0);
+  put_transition(wire, 200, 1, 13, 9, 6, 0);
+  put_fault(wire, 100, 2, 14, 0xA, 1, 0, {});
+  put_fault(wire, 200, 2, 15, 0xB, 1, 0, {});
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
@@ -364,9 +356,9 @@ static void test_truncated_payload_through_engine() {
   w.u16(0x11);
   w.u8(2);
   w.u8(3);
-  w.u8(10);  // claims 10 detail bytes
+  w.u8(10);
   const std::vector<uint8_t> present = {1, 2};
-  w.bytes(present);  // only 2 present
+  w.bytes(present);
   put_frame(wire, RecordType::Fault, 1, 0, 100, w.buf());
 
   AnomalyEngine e;
@@ -379,9 +371,9 @@ static void test_truncated_payload_through_engine() {
 
 static void test_unknown_and_foreign_records() {
   std::vector<uint8_t> wire;
-  // A record type byte the format does not define -> UnknownRecord.
+
   put_frame(wire, static_cast<RecordType>(0x7F), 1, 0, 100, {9, 9});
-  // A valid record owned by another subsystem -> ignored, no diagnostic.
+
   put_frame(wire, RecordType::SessionBegin, 1, 1, 110, {1, 2, 3});
   put_fault(wire, 1, 2, 120, 0xA, 1, 0, {});
 
@@ -389,7 +381,7 @@ static void test_unknown_and_foreign_records() {
   e.ingest(wire.data(), wire.size());
 
   CHECK(count_diag(e, AnomalyDiagCode::UnknownRecord) == 1);
-  CHECK(e.diagnostics().size() == 1);  // session-begin produced nothing
+  CHECK(e.diagnostics().size() == 1);
   CHECK(e.faults().size() == 1);
   CHECK(e.transitions().empty() && e.config_changes().empty());
 }
@@ -397,11 +389,11 @@ static void test_unknown_and_foreign_records() {
 static void test_summary() {
   std::vector<uint8_t> wire;
   put_transition(wire, 1, 0, 100, 0, 1, 0);
-  put_transition(wire, 1, 1, 110, 9, 2, 0);  // desync
+  put_transition(wire, 1, 1, 110, 9, 2, 0);
   put_config(wire, 1, 2, 120, 5, 0, 1);
-  put_fault(wire, 1, 3, 130, 0xA, 0, 0, {});    // Info
-  put_fault(wire, 1, 4, 140, 0xB, 3, 0, {});    // Critical
-  put_fault(wire, 2, 0, 150, 0xC, 200, 0, {});  // clamped Critical, dev 2
+  put_fault(wire, 1, 3, 130, 0xA, 0, 0, {});
+  put_fault(wire, 1, 4, 140, 0xB, 3, 0, {});
+  put_fault(wire, 2, 0, 150, 0xC, 200, 0, {});
 
   AnomalyEngine e;
   e.ingest(wire.data(), wire.size());
@@ -412,11 +404,11 @@ static void test_summary() {
   CHECK(s.total_config_changes == 1);
   CHECK(s.total_faults == 3);
   CHECK(s.state_desyncs == 1);
-  CHECK(s.faults_by_severity[0] == 1);  // Info
+  CHECK(s.faults_by_severity[0] == 1);
   CHECK(s.faults_by_severity[1] == 0);
   CHECK(s.faults_by_severity[2] == 0);
-  CHECK(s.faults_by_severity[3] == 2);  // Critical + clamped
-  CHECK(s.diagnostic_count == 1);       // the desync
+  CHECK(s.faults_by_severity[3] == 2);
+  CHECK(s.diagnostic_count == 1);
 }
 
 static void test_describe_and_strings() {

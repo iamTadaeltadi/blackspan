@@ -55,9 +55,6 @@ const char* func_name(FuncId f) {
 
 namespace {
 
-// The deepest nesting the parser will descend before refusing an expression.
-// A guard well above any realistic formula that keeps hostile, deeply nested
-// input from overflowing the parse or evaluation stack.
 constexpr int kMaxDepth = 128;
 
 bool is_space(char c) {
@@ -82,19 +79,16 @@ enum class TokKind : uint8_t {
   RParen,
   Comma,
   Dot,
-  Invalid,  // an unrecognized or malformed character run
+  Invalid,
 };
 
 struct Token {
   TokKind kind = TokKind::End;
-  size_t pos = 0;      // byte offset of the token's first character
-  double number = 0.0;  // Number
-  std::string text;     // Ident
+  size_t pos = 0;
+  double number = 0.0;
+  std::string text;
 };
 
-// Splits the source into tokens, always ending with an End token whose position
-// is the length of the input. Unrecognized characters and malformed numeric
-// runs become Invalid tokens so the parser can point at them.
 std::vector<Token> tokenize(const std::string& s) {
   std::vector<Token> out;
   const size_t n = s.size();
@@ -205,9 +199,6 @@ size_t func_arity(FuncId f) {
   return 0;
 }
 
-// Parses a ch<digits> channel-reference prefix, e.g. "ch5" -> 5. Rejects a
-// missing "ch", no digits, non-digit trailing characters, or a value that
-// would not fit a channel id.
 bool parse_channel_prefix(const std::string& s, uint16_t* out) {
   if (s.size() < 3) return false;
   if (s[0] != 'c' || s[1] != 'h') return false;
@@ -227,9 +218,6 @@ std::unique_ptr<ExprNode> new_node(ExprKind k) {
   return n;
 }
 
-// A recursive-descent parser over a tokenized formula. It latches the first
-// error it meets and unwinds, so every recursive step checks `error` before
-// building a node.
 struct Parser {
   explicit Parser(const std::vector<Token>& t) : toks(t) {}
 
@@ -256,9 +244,6 @@ struct Parser {
   std::unique_ptr<ExprNode> parse_primary();
 };
 
-// Bounds recursion depth: constructed on entry to each recursive rule, it
-// reports whether descending one more level is still within the limit and
-// releases the level when the rule returns.
 struct DepthGuard {
   Parser& p;
   bool ok;
@@ -358,7 +343,7 @@ std::unique_ptr<ExprNode> Parser::parse_primary() {
           fail(ExprError::UnknownFunction, name_pos);
           return nullptr;
         }
-        advance();  // consume '('
+        advance();
         std::vector<std::unique_ptr<ExprNode>> args;
         if (peek().kind != TokKind::RParen) {
           while (true) {
@@ -377,7 +362,7 @@ std::unique_ptr<ExprNode> Parser::parse_primary() {
                peek().kind == TokKind::End ? name_pos : peek().pos);
           return nullptr;
         }
-        advance();  // consume ')'
+        advance();
         if (args.size() != func_arity(*fid)) {
           fail(ExprError::BadArity, name_pos);
           return nullptr;
@@ -393,7 +378,7 @@ std::unique_ptr<ExprNode> Parser::parse_primary() {
           fail(ExprError::BadChannelRef, name_pos);
           return nullptr;
         }
-        advance();  // consume '.'
+        advance();
         if (peek().kind != TokKind::Ident) {
           fail(peek().kind == TokKind::End ? ExprError::UnexpectedEnd
                                            : ExprError::UnexpectedToken,
@@ -414,13 +399,13 @@ std::unique_ptr<ExprNode> Parser::parse_primary() {
       fail(ExprError::UnexpectedEnd, t.pos);
       return nullptr;
     default:
-      // Star, Slash, Comma, RParen, Dot, or Invalid where a value is required.
+
       fail(ExprError::UnexpectedToken, t.pos);
       return nullptr;
   }
 }
 
-}  // namespace
+}
 
 ParseResult parse_expr(const std::string& text) {
   ParseResult res;
@@ -441,7 +426,7 @@ ParseResult parse_expr(const std::string& text) {
     if (p.peek().kind == TokKind::RParen) {
       res.error = ExprError::UnbalancedParen;
     } else if (p.peek().kind == TokKind::Invalid) {
-      // An unrecognized character is a lexical error wherever it lands.
+
       res.error = ExprError::UnexpectedToken;
     } else {
       res.error = ExprError::TrailingTokens;
@@ -506,7 +491,7 @@ bool eval_expr(const ExprNode& node, const ExprBinding& bind, double* out,
           *out = a * b;
           break;
         case '/':
-          // A zero divisor is a defined, non-fatal result: NaN.
+
           *out = (b == 0.0) ? std::numeric_limits<double>::quiet_NaN() : a / b;
           break;
         default:
@@ -571,4 +556,4 @@ EvalOnceResult evaluate_expr_once(const std::string& expr,
   return res;
 }
 
-}  // namespace blackspan
+}

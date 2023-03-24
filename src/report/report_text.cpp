@@ -106,4 +106,4 @@ std::string render_text(const ReportModel& model, uint16_t section_mask) {
   return out;
 }
 
-}  // namespace blackspan
+}

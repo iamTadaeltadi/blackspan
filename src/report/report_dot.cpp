@@ -17,7 +17,6 @@ std::string render_dot(const ReportModel& model, uint16_t section_mask) {
   out += "  rankdir=LR;\n";
   out += "  node [fontname=\"monospace\"];\n";
 
-  // One box node per reconstructed session, in stream order.
   if (want(section_mask, kSectionSessions, model.sessions)) {
     const std::vector<Session>& sessions = *model.sessions;
     for (size_t i = 0; i < sessions.size(); ++i) {
@@ -30,7 +29,6 @@ std::string render_dot(const ReportModel& model, uint16_t section_mask) {
     }
   }
 
-  // One ellipse node per channel that carries a series, ascending by id.
   if (want(section_mask, kSectionChannels, model.channels)) {
     for (uint16_t id : model.channels->channels()) {
       const ChannelSeries* series = model.channels->series(id);
@@ -44,9 +42,6 @@ std::string render_dot(const ReportModel& model, uint16_t section_mask) {
     }
   }
 
-  // The device state machine: a circle node per distinct state and a directed
-  // edge per recorded transition. Desync edges (a from_state that did not
-  // continue the known chain) are drawn dashed and red.
   if (want(section_mask, kSectionAnomalies, model.anomalies)) {
     const AnomalyEngine& a = *model.anomalies;
     std::set<uint16_t> states;
@@ -71,4 +66,4 @@ std::string render_dot(const ReportModel& model, uint16_t section_mask) {
   return out;
 }
 
-}  // namespace blackspan
+}

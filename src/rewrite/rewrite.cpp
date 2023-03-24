@@ -31,8 +31,7 @@ RewriteResult rewrite_slice(const uint8_t* data, size_t len,
   while (fs.next(f)) {
     ++out.frames_in;
     if (filter.keep(f.header)) {
-      // Re-encode from the decoded header and payload so the output CRCs are
-      // recomputed and always valid.
+
       encode_frame(f.header, f.payload.data(), f.payload.size(), out.bytes);
       ++out.frames_kept;
     }
@@ -48,8 +47,6 @@ RewriteResult rewrite_slice(const std::vector<uint8_t>& data,
 
 namespace {
 
-// One decoded frame tagged with the input it came from and its position in that
-// input, so a stable merge can order frames deterministically.
 struct TaggedFrame {
   uint64_t monotonic_ts = 0;
   size_t input_index = 0;
@@ -57,7 +54,7 @@ struct TaggedFrame {
   Frame frame;
 };
 
-}  // namespace
+}
 
 MergeResult rewrite_merge(const std::vector<std::vector<uint8_t>>& inputs) {
   MergeResult out;
@@ -102,4 +99,4 @@ MergeResult rewrite_merge(const std::vector<std::vector<uint8_t>>& inputs) {
   return out;
 }
 
-}  // namespace blackspan
+}

@@ -38,14 +38,6 @@ cmake --build build
 ctest --test-dir build
 ```
 
-An AddressSanitizer/UBSan build is available for development:
-
-```sh
-cmake -S . -B build-asan -DBLACKSPAN_SANITIZE=ON
-cmake --build build-asan
-ctest --test-dir build-asan
-```
-
 ## Usage
 
 ```sh

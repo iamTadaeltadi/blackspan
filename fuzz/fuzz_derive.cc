@@ -1,12 +1,3 @@
-// derive: parses derived-channel formulas and evaluates them over a recording.
-//
-// The input splits into a recording and a formula string. The recording is
-// decoded for its channel store, and every derived-def frame it carries is fed
-// through the derived-def payload decoder and registered in a DeriveEngine,
-// exercising the expression parser at registration. The trailing string is also
-// registered as a formula against the first channel, so arbitrary expression
-// text reaches the parser directly. Finally every registered definition is
-// evaluated over the store, running the expression VM across real samples.
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -33,7 +24,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   DeriveEngine engine;
 
-  // Register every derived-def frame the recording carries.
   FrameStream stream(in.recording.data(), in.recording.size());
   Frame frame;
   while (stream.next(frame)) {
@@ -46,7 +36,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     engine.ingest_frame(frame, &perr);
   }
 
-  // Drive the expression parser directly with the trailing text.
   std::vector<uint16_t> channel_ids = store.channels();
   DerivedDefRecord textual;
   textual.derived_id = 0xF000;
@@ -57,7 +46,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   size_t parse_pos = 0;
   engine.register_def(textual, &parse_err, &parse_pos);
 
-  // Evaluate everything that registered.
   for (uint16_t id : engine.defs()) {
     DerivedSeries out;
     DeriveError eerr = engine.evaluate(id, store, out);

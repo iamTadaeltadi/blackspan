@@ -6,11 +6,6 @@
 #include <string>
 #include <vector>
 
-// Splits a fuzz input into a leading binary recording and a trailing text blob,
-// for targets that drive a decoder plus a textual sub-language (a query string,
-// a derived-channel formula). The first two bytes are a little-endian length N;
-// the next min(N, remaining) bytes are the recording, and everything after is
-// the text. An input shorter than two bytes yields an empty recording and text.
 struct SplitInput {
   std::vector<uint8_t> recording;
   std::string text;
@@ -27,4 +22,4 @@ inline SplitInput split_input(const uint8_t* data, size_t size) {
   return out;
 }
 
-#endif  // BLACKSPAN_FUZZ_SPLIT_H
+#endif

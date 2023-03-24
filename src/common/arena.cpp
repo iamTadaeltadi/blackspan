@@ -10,7 +10,7 @@ size_t align_up(size_t v, size_t align) {
   return (v + (align - 1)) & ~(align - 1);
 }
 
-}  // namespace
+}
 
 Arena::Arena(size_t block_size)
     : block_size_(block_size < 64 ? 64 : block_size) {}
@@ -40,7 +40,7 @@ void* Arena::allocate(size_t bytes, size_t align) {
       return b.data + start;
     }
   }
-  // Need a fresh block big enough for alignment padding plus the request.
+
   add_block(bytes + align);
   Block& b = blocks_.back();
   const size_t start = align_up(b.used, align);
@@ -66,4 +66,4 @@ void Arena::reset() {
   used_total_ = 0;
 }
 
-}  // namespace blackspan
+}

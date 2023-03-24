@@ -15,14 +15,12 @@ ChannelError ChannelStore::ingest_frame(const Frame& f,
       decode_sample_block_header(f.payload.data(), f.payload.size(), h);
   if (he != ChannelError::None) return he;
 
-  // Resolve the schema for the exact (channel, version) the block names.
   const ChannelSchema* schema = registry.get(h.channel_id, h.schema_version);
   if (schema == nullptr) {
     return registry.contains(h.channel_id) ? ChannelError::UnknownVersion
                                            : ChannelError::UnknownChannel;
   }
 
-  // A series holds one version only; refuse a block that would mix strides.
   const auto existing = series_.find(h.channel_id);
   if (existing != series_.end() &&
       existing->second.schema_version() != h.schema_version) {
@@ -53,9 +51,6 @@ ChannelError ChannelStore::ingest_frame(const Frame& f,
   const uint8_t* rows = f.payload.data() + kSampleBlockHeaderSize;
   target->append_block(rows, rows_bytes, h.sample_count, h.flags, base_ts);
 
-  // Bound memory on long recordings: keep only the most recent samples once the
-  // series grows past the retention cap. Older blocks are retired and a straddling
-  // block is repacked in place.
   if (target->total_samples() > kChannelRetentionCap) {
     target->compact_to(kChannelRetentionCap);
   }
@@ -72,7 +67,7 @@ std::vector<uint16_t> ChannelStore::channels() const {
   std::vector<uint16_t> out;
   out.reserve(series_.size());
   for (const auto& kv : series_) out.push_back(kv.first);
-  return out;  // std::map iterates keys ascending
+  return out;
 }
 
 size_t ChannelStore::total_samples() const {
@@ -110,4 +105,4 @@ std::vector<double> ChannelStore::column_as_doubles(uint16_t channel_id,
   return out;
 }
 
-}  // namespace blackspan
+}

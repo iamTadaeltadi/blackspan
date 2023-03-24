@@ -98,4 +98,4 @@ const char* schema_error_str(SchemaError e) {
   return "unknown";
 }
 
-}  // namespace blackspan
+}

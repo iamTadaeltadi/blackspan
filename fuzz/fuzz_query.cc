@@ -1,10 +1,3 @@
-// query: decodes a recording, then parses and evaluates a triage query over it.
-//
-// The input is split into a leading recording and a trailing query string. The
-// recording is decoded into the full model; a QueryEngine bound to that model's
-// sessions, channels, anomalies, and schemas then parses and runs the query
-// text, exercising the select-DSL parser and every per-entity evaluator against
-// real reconstructed state. Both the free parser and the engine path are hit.
 #include <cstddef>
 #include <cstdint>
 
@@ -25,7 +18,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   DecodedRecording rec;
   rec.decode(in.recording.data(), in.recording.size());
 
-  // The standalone parser, independent of any model.
   ParsedQuery parsed;
   size_t err_pos = 0;
   QueryError perr = parse_query(in.text, parsed, &err_pos);

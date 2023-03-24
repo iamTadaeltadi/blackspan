@@ -6,38 +6,15 @@
 #include <string>
 #include <vector>
 
-// Implementation notes.
-//
-// The one non-trivial step is grouping and ordering. The input is a flat session
-// list in reconstruction order, which for a multi-device recording interleaves
-// devices and for a corrupt one may not even be time-ordered within a device. We
-// therefore build, per device, a vector of pointers into the caller's session
-// list and sort each vector by (begin_ts, session_index). A std::map keyed by
-// device_id gives the device-ascending iteration order the API promises for free.
-// Pointers (never copies) keep the pass O(n log n) in time and the sessions'
-// event vectors unduplicated.
-//
-// Everything downstream is a straight fold over one device's ordered sessions:
-// active time is the sum of durations, idle time is the sum of clamped gaps, and
-// the remaining fields are simple accumulations. No arithmetic here can trap:
-// gaps are computed only after an explicit ordering test, and the duty-cycle
-// division is guarded against a zero span.
-
 namespace blackspan {
 
 namespace {
 
-// Orders two sessions of the same device on the analysis timeline: earlier
-// begin_ts first, and for identical timestamps the lower session_index first, so
-// the order is total and independent of the input order.
 bool earlier(const Session* a, const Session* b) {
   if (a->begin_ts != b->begin_ts) return a->begin_ts < b->begin_ts;
   return a->session_index < b->session_index;
 }
 
-// Groups the session list by device_id and orders each group by (begin_ts,
-// session_index). The map iterates device_id ascending, which is the order both
-// analyze_activity and session_gaps expose.
 std::map<uint32_t, std::vector<const Session*>> group_sessions(
     const std::vector<Session>& sessions) {
   std::map<uint32_t, std::vector<const Session*>> by_device;
@@ -48,9 +25,6 @@ std::map<uint32_t, std::vector<const Session*>> group_sessions(
   return by_device;
 }
 
-// Idle time between a session that ended at `prev_end` and the next that began at
-// `next_begin`. A next-begins-before-prev-ended overlap yields 0 and sets
-// *overlap; a normal gap sets it false.
 uint64_t gap_between(uint64_t prev_end, uint64_t next_begin, bool* overlap) {
   if (next_begin >= prev_end) {
     *overlap = false;
@@ -60,7 +34,6 @@ uint64_t gap_between(uint64_t prev_end, uint64_t next_begin, bool* overlap) {
   return 0;
 }
 
-// Folds one device's already-ordered sessions into a DeviceActivity.
 DeviceActivity fold_device(uint32_t device_id,
                            const std::vector<const Session*>& ordered) {
   DeviceActivity a;
@@ -109,7 +82,7 @@ std::string duty_str(double d) {
   return b;
 }
 
-}  // namespace
+}
 
 std::vector<DeviceActivity> analyze_activity(
     const std::vector<Session>& sessions) {
@@ -177,8 +150,6 @@ FleetActivity analyze_fleet(const std::vector<DeviceActivity>& per_device) {
     }
     if (a.last_end_ts > f.latest_end_ts) f.latest_end_ts = a.last_end_ts;
 
-    // Strict '>' keeps the first (lowest device_id, since analyze_activity emits
-    // devices in ascending order) on a tie.
     if (a.total_active_ns > f.busiest_active_ns) {
       f.busiest_active_ns = a.total_active_ns;
       f.busiest_device = a.device_id;
@@ -200,7 +171,7 @@ bool longest_idle_gap(const std::vector<Session>& sessions, SessionGap& out) {
   if (gaps.empty()) return false;
   const SessionGap* best = &gaps.front();
   for (const SessionGap& g : gaps) {
-    if (g.gap_ns > best->gap_ns) best = &g;  // strict '>' keeps the earlier tie
+    if (g.gap_ns > best->gap_ns) best = &g;
   }
   out = *best;
   return true;
@@ -246,4 +217,4 @@ std::string describe_fleet(const FleetActivity& f) {
   return out;
 }
 
-}  // namespace blackspan
+}

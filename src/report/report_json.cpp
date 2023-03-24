@@ -261,11 +261,11 @@ std::string render_json(const ReportModel& model, uint16_t section_mask) {
     }
     w.end_array();
 
-    w.end_object();  // anomalies
+    w.end_object();
   }
 
-  w.end_object();  // root
+  w.end_object();
   return w.str();
 }
 
-}  // namespace blackspan
+}

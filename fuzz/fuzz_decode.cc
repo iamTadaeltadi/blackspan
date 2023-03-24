@@ -1,12 +1,3 @@
-// decode: drives the whole reconstruction pipeline from one recording buffer.
-//
-// A single DecodedRecording::decode runs the frame stream and routes every
-// frame to the schema registry, the session reconstructor, the channel column
-// stores, and the anomaly engine. The harness then reads the reconstructed
-// model end to end -- every channel's samples through the typed view, every
-// session and anomaly through its describe path, burst detection, and severity
-// tallies -- so lazily built and cross-subsystem read paths all execute on the
-// decoded state rather than sitting untouched behind the decode call.
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -24,7 +15,6 @@ using namespace blackspan;
 
 namespace {
 
-// Prevents the compiler from discarding the read-only walk below.
 volatile size_t g_sink = 0;
 
 void walk_channels(const ChannelStore& channels) {
@@ -83,8 +73,7 @@ void walk_anomalies(const AnomalyEngine& anomalies) {
 }
 
 void walk_health(const ChannelStore& channels) {
-  // Score every channel's restlessness the way triage would, exercising the
-  // length-proportional baseline over the decoded columns.
+
   std::vector<HealthFinding> findings = channel_health_scan(channels, 1.0);
   for (const HealthFinding& f : findings) {
     g_sink += f.samples;
@@ -93,7 +82,7 @@ void walk_health(const ChannelStore& channels) {
   }
 }
 
-}  // namespace
+}
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   DecodedRecording rec;

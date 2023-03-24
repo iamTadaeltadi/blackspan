@@ -41,8 +41,6 @@ void put_frame(std::vector<uint8_t>& wire, RecordType type, uint32_t device_id,
   encode_frame(h, payload.data(), payload.size(), wire);
 }
 
-// Builds a schema registry + channel store holding channel 1 with one u16 field
-// "raw" and samples {100, 200, 300}.
 void build_channels(SchemaRegistry& schemas, ChannelStore& channels) {
   std::vector<uint8_t> wire;
   {
@@ -53,7 +51,7 @@ void build_channels(SchemaRegistry& schemas, ChannelStore& channels) {
     const std::string cname = "temp";
     p.u8(static_cast<uint8_t>(cname.size()));
     p.bytes(reinterpret_cast<const uint8_t*>(cname.data()), cname.size());
-    p.u8(3);  // U16
+    p.u8(3);
     const std::string fname = "raw";
     p.u8(static_cast<uint8_t>(fname.size()));
     p.bytes(reinterpret_cast<const uint8_t*>(fname.data()), fname.size());
@@ -86,11 +84,11 @@ void add_fault(std::vector<uint8_t>& wire, uint32_t seq, uint64_t ts,
   p.u16(code);
   p.u8(severity);
   p.u8(1);
-  p.u8(0);  // no detail
+  p.u8(0);
   put_frame(wire, RecordType::Fault, 0x100, seq, ts, p.buf());
 }
 
-}  // namespace
+}
 
 static void test_compute_stats() {
   ColumnStats s = compute_stats({1, 2, 3, 4});
@@ -121,8 +119,8 @@ static void test_histogram() {
   Histogram h = histogram({1, 2, 3, 4}, 2, 0.0, 4.0);
   CHECK(close_to(h.bucket_width, 2.0));
   CHECK(h.buckets.size() == 2);
-  CHECK(h.buckets[0] == 1);  // [0,2): {1}
-  CHECK(h.buckets[1] == 3);  // [2,4]: {2,3,4}
+  CHECK(h.buckets[0] == 1);
+  CHECK(h.buckets[1] == 3);
   CHECK(h.below == 0 && h.above == 0);
 
   Histogram h2 = histogram({-1, 5}, 2, 0.0, 4.0);
@@ -169,10 +167,10 @@ static void test_column_stats() {
 
 static void test_event_stats() {
   std::vector<uint8_t> wire;
-  add_fault(wire, 0, 1000, 10, 0);  // Info
-  add_fault(wire, 1, 1100, 11, 1);  // Warning
-  add_fault(wire, 2, 1200, 12, 2);  // Error
-  add_fault(wire, 3, 1300, 13, 3);  // Critical
+  add_fault(wire, 0, 1000, 10, 0);
+  add_fault(wire, 1, 1100, 11, 1);
+  add_fault(wire, 2, 1200, 12, 2);
+  add_fault(wire, 3, 1300, 13, 3);
   AnomalyEngine engine;
   engine.ingest(wire.data(), wire.size());
   CHECK(engine.faults().size() == 4);
@@ -180,9 +178,8 @@ static void test_event_stats() {
   std::array<size_t, 4> sev = severity_histogram(engine);
   CHECK(sev[0] == 1 && sev[1] == 1 && sev[2] == 1 && sev[3] == 1);
 
-  CHECK(close_to(mean_interfault_ns(engine), 100.0));  // gaps 100,100,100
+  CHECK(close_to(mean_interfault_ns(engine), 100.0));
 
-  // span 300 ns, 4 faults, window 100 -> 4/300*100
   CHECK(close_to(fault_rate(engine, 100), 4.0 / 300.0 * 100.0));
 
   AnomalyEngine empty;

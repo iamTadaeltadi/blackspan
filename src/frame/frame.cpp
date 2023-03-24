@@ -18,7 +18,7 @@ void write_header_fields(ByteWriter& w, const FrameHeader& h) {
   w.u16(h.payload_len);
 }
 
-}  // namespace
+}
 
 size_t encode_frame(const FrameHeader& h_in, const uint8_t* payload,
                     size_t payload_len, std::vector<uint8_t>& out) {
@@ -27,7 +27,7 @@ size_t encode_frame(const FrameHeader& h_in, const uint8_t* payload,
 
   ByteWriter w;
   write_header_fields(w, h);
-  // Header CRC covers the header bytes preceding the CRC field itself.
+
   const uint16_t hcrc = crc16_ccitt(w.buf().data(), w.buf().size());
   w.u16(hcrc);
   if (payload_len) w.bytes(payload, payload_len);
@@ -152,4 +152,4 @@ bool FrameStream::next(Frame& out) {
   return true;
 }
 
-}  // namespace blackspan
+}

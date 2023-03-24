@@ -7,11 +7,10 @@
 
 namespace blackspan {
 
-// Wire constants for the recorder frame format. See docs/FRAME_FORMAT.md.
-constexpr uint32_t kFrameMagic = 0x31505342u;  // "BSP1" little-endian
+constexpr uint32_t kFrameMagic = 0x31505342u;
 constexpr uint8_t kFrameVersion = 1;
-constexpr size_t kFrameHeaderSize = 28;  // through the header CRC field
-constexpr size_t kFrameTrailerSize = 4;  // payload CRC-32
+constexpr size_t kFrameHeaderSize = 28;
+constexpr size_t kFrameTrailerSize = 4;
 constexpr size_t kMaxPayload = 65535;
 
 enum class RecordType : uint8_t {
@@ -46,7 +45,7 @@ struct Frame {
 
 enum class FrameStatus {
   Ok,
-  Incomplete,          // buffer ends mid-frame
+  Incomplete,
   BadMagic,
   BadVersion,
   HeaderCrcMismatch,
@@ -54,22 +53,16 @@ enum class FrameStatus {
   PayloadTooLong,
 };
 
-// Appends one encoded frame to out. payload_len is taken from the argument, not
-// from h.payload_len. Returns the number of bytes appended.
 size_t encode_frame(const FrameHeader& h, const uint8_t* payload,
                     size_t payload_len, std::vector<uint8_t>& out);
 size_t encode_frame(const Frame& f, std::vector<uint8_t>& out);
 
-// Decodes a single frame from data[0, len). On Ok, fills out and writes the
-// number of bytes consumed to *consumed (may be null).
 FrameStatus decode_frame(const uint8_t* data, size_t len, Frame& out,
                          size_t* consumed);
 
 const char* frame_status_str(FrameStatus s);
 const char* record_type_name(RecordType t);
 
-// Sequentially decodes frames from a buffer, stopping at the first non-Ok
-// status. A trailing partial frame reports Incomplete via status().
 class FrameStream {
  public:
   FrameStream(const uint8_t* data, size_t len)
@@ -86,6 +79,6 @@ class FrameStream {
   FrameStatus status_;
 };
 
-}  // namespace blackspan
+}
 
-#endif  // BLACKSPAN_FRAME_H
+#endif

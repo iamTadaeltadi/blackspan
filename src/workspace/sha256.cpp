@@ -3,8 +3,6 @@
 namespace blackspan {
 namespace {
 
-// The 64 round constants: the fractional parts of the cube roots of the first
-// 64 primes (FIPS 180-4 section 4.2.2).
 constexpr uint32_t kRoundConstants[64] = {
     0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu,
     0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u, 0xd807aa98u, 0x12835b01u,
@@ -24,7 +22,7 @@ inline uint32_t rotr(uint32_t x, uint32_t n) {
   return (x >> n) | (x << (32 - n));
 }
 
-}  // namespace
+}
 
 std::string Sha256Digest::hex() const {
   static const char kHex[] = "0123456789abcdef";
@@ -110,7 +108,6 @@ void Sha256::update(const uint8_t* data, size_t len) {
   if (len == 0) return;
   bit_len_ += static_cast<uint64_t>(len) * 8;
 
-  // Top off any partially filled block first.
   if (buffer_len_ > 0) {
     while (len > 0 && buffer_len_ < 64) {
       buffer_[buffer_len_++] = *data++;
@@ -122,14 +119,12 @@ void Sha256::update(const uint8_t* data, size_t len) {
     }
   }
 
-  // Consume whole blocks directly from the input.
   while (len >= 64) {
     process_block(data);
     data += 64;
     len -= 64;
   }
 
-  // Retain the trailing remainder for the next call or finish().
   while (len > 0) {
     buffer_[buffer_len_++] = *data++;
     --len;
@@ -139,8 +134,6 @@ void Sha256::update(const uint8_t* data, size_t len) {
 Sha256Digest Sha256::finish() {
   const uint64_t total_bits = bit_len_;
 
-  // Append the mandatory 0x80 byte, then pad with zeros. If the length field
-  // would not fit in the current block, flush a full padded block first.
   buffer_[buffer_len_++] = 0x80;
   if (buffer_len_ > 56) {
     while (buffer_len_ < 64) buffer_[buffer_len_++] = 0x00;
@@ -149,7 +142,6 @@ Sha256Digest Sha256::finish() {
   }
   while (buffer_len_ < 56) buffer_[buffer_len_++] = 0x00;
 
-  // Big-endian 64-bit message length in bits.
   for (int i = 7; i >= 0; --i) {
     buffer_[buffer_len_++] =
         static_cast<uint8_t>((total_bits >> (i * 8)) & 0xFFu);
@@ -172,4 +164,4 @@ Sha256Digest sha256(const uint8_t* data, size_t len) {
   return h.finish();
 }
 
-}  // namespace blackspan
+}

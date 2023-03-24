@@ -1,16 +1,3 @@
-// Corpus test over the checked-in example recordings in examples/.
-//
-// Three properties are asserted for every example, and together they keep the
-// scripts, the wire format, the decoder, and the documented output in step:
-//
-//   1. the script still assembles to exactly the committed .bsp recording;
-//   2. decoding the recording reproduces the model the example documents;
-//   3. rendering is deterministic and free of the sanitizer-visible mistakes a
-//      malformed recording could otherwise provoke.
-//
-// examples/check.sh covers the same corpus at the CLI level and diffs the full
-// transcript in examples/expected/.
-
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -70,8 +57,6 @@ static bool read_file(const std::string& path, std::vector<uint8_t>& out) {
   return true;
 }
 
-// Assembles <name>.bsr and checks it against the committed <name>.bsp, then
-// returns the recording bytes.
 static bool load_example(const char* name, std::vector<uint8_t>& bytes) {
   std::vector<uint8_t> script_bytes;
   if (!read_file(example_path(name, ".bsr"), script_bytes)) return false;
@@ -101,7 +86,6 @@ static bool load_example(const char* name, std::vector<uint8_t>& bytes) {
   return true;
 }
 
-// The healthy example: one closed session, two channels, one warning.
 static void test_nominal() {
   std::vector<uint8_t> bytes;
   if (!load_example("nominal", bytes)) return;
@@ -150,7 +134,6 @@ static void test_nominal() {
     CHECK(f.state_at_fault.value_or(0) == 2);
   }
 
-  // The example's derived channel evaluates over the recorded samples.
   DeriveEngine engine;
   FrameStream fs(bytes.data(), bytes.size());
   Frame f;
@@ -164,18 +147,16 @@ static void test_nominal() {
   CHECK(engine.evaluate(1, rec.channels(), series) == DeriveError::None);
   CHECK(series.values.size() == 6);
   if (series.values.size() == 6) {
-    // rpm * 0.001 * current_ma for the first row: 1200 * 0.001 * 850 = 1020.
+
     CHECK(series.values[0] > 1019.9 && series.values[0] < 1020.1);
   }
 
-  // Column statistics over the motor channel's rpm field.
   ColumnStats stats;
   CHECK(compute_column_stats(rec.channels(), 1, 0, stats) == StatsError::None);
   CHECK(stats.count == 6);
   CHECK(stats.min == 1180);
   CHECK(stats.max == 1305);
 
-  // Export produces one header line plus one line per sample.
   std::string csv;
   CHECK(export_channel_delimited(rec.channels(), rec.schemas(), 1,
                                  DelimFormat::Csv, csv) ==
@@ -187,8 +168,6 @@ static void test_nominal() {
   CHECK(lines == 7);
 }
 
-// The multi-device example: interleaved devices, a schema revision, a
-// reconnect, and one session left open.
 static void test_fleet() {
   std::vector<uint8_t> bytes;
   if (!load_example("fleet", bytes)) return;
@@ -213,7 +192,6 @@ static void test_fleet() {
           SessionDiagCode::UnterminatedSession);
   }
 
-  // Channel 2 was revised, so it has two versions; channel 1 has one.
   CHECK(rec.schemas().count() == 2);
   CHECK(rec.schemas().versions(1).size() == 1);
   CHECK(rec.schemas().versions(2).size() == 2);
@@ -224,7 +202,7 @@ static void test_fleet() {
     CHECK(bus_v2->fields.size() == 3);
     CHECK(bus_v2->fields[2].name == "board_c");
   }
-  // The series stays pinned to the version it was opened with.
+
   const ChannelSeries* bus = rec.channels().series(2);
   CHECK(bus != nullptr);
   if (bus) {
@@ -239,15 +217,13 @@ static void test_fleet() {
   }
 }
 
-// The damaged example: a session-end with no begin, a state desync, a fault
-// burst, and a truncated final frame.
 static void test_degraded() {
   std::vector<uint8_t> bytes;
   if (!load_example("degraded", bytes)) return;
 
   DecodedRecording rec;
   rec.decode(bytes.data(), bytes.size());
-  // The recording ends mid-frame; everything before the cut still decodes.
+
   CHECK(rec.final_status() == FrameStatus::Incomplete);
   CHECK(rec.frame_count() == 17);
 
@@ -271,7 +247,6 @@ static void test_degraded() {
   }
   CHECK(desync_flagged);
 
-  // Four faults, escalating to critical, all inside one burst window.
   const std::vector<FaultEvent>& faults = rec.anomalies().faults();
   CHECK(faults.size() == 4);
   std::array<size_t, 4> by_sev = rec.anomalies().fault_count_by_severity();
@@ -287,8 +262,6 @@ static void test_degraded() {
   }
 }
 
-// Every renderer is a pure function of the model: rendering twice gives
-// identical bytes, and no example produces an empty document.
 static void test_render_determinism() {
   const char* names[] = {"nominal", "fleet", "degraded"};
   for (const char* name : names) {
@@ -313,7 +286,6 @@ static void test_render_determinism() {
       CHECK(!a.empty());
     }
 
-    // A query over each entity runs without error on every example.
     QueryEngine engine(&sessions, &rec.channels(), &rec.anomalies(),
                        &rec.schemas());
     const char* queries[] = {"select sessions", "select faults",
@@ -330,8 +302,6 @@ static void test_render_determinism() {
   }
 }
 
-// Decoding every prefix of every example must stay well-defined: a recording
-// cut at an arbitrary byte is exactly what a power loss produces.
 static void test_prefix_robustness() {
   const char* names[] = {"nominal", "fleet", "degraded"};
   for (const char* name : names) {

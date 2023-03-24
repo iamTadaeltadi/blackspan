@@ -30,7 +30,7 @@ std::array<uint32_t, 256> make_crc32_table() {
   return table;
 }
 
-}  // namespace
+}
 
 uint16_t crc16_ccitt(const uint8_t* data, size_t len) {
   static const std::array<uint16_t, 256> table = make_crc16_table();
@@ -52,4 +52,4 @@ uint32_t crc32(const uint8_t* data, size_t len) {
   return crc ^ 0xFFFFFFFFu;
 }
 
-}  // namespace blackspan
+}

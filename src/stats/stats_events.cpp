@@ -6,7 +6,7 @@ namespace blackspan {
 
 namespace {
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-}  // namespace
+}
 
 double fault_rate(const AnomalyEngine& engine, uint64_t window_ns) {
   const std::vector<FaultEvent>& faults = engine.faults();
@@ -20,7 +20,7 @@ double fault_rate(const AnomalyEngine& engine, uint64_t window_ns) {
   }
 
   const double span_ns = static_cast<double>(hi - lo);
-  if (span_ns == 0.0) return kNaN;  // undefined over a zero-length span
+  if (span_ns == 0.0) return kNaN;
 
   return (static_cast<double>(faults.size()) / span_ns) *
          static_cast<double>(window_ns);
@@ -30,8 +30,6 @@ double mean_interfault_ns(const AnomalyEngine& engine) {
   const std::vector<FaultEvent>& faults = engine.faults();
   if (faults.size() < 2) return kNaN;
 
-  // Sum signed gaps so a non-monotonic ordering cannot underflow the unsigned
-  // timestamps; the mean spans the count - 1 intervals between the faults.
   double total_gap = 0.0;
   for (size_t i = 1; i < faults.size(); ++i) {
     total_gap += static_cast<double>(faults[i].monotonic_ts) -
@@ -48,4 +46,4 @@ std::array<size_t, 4> severity_histogram(const AnomalyEngine& engine) {
   return counts;
 }
 
-}  // namespace blackspan
+}

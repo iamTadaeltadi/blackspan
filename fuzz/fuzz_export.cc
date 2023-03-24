@@ -1,10 +1,3 @@
-// export: decodes a recording, then serializes it through every export path.
-//
-// Each channel is rendered as CSV, TSV, and NDJSON, and the fault, transition,
-// and session tables are rendered in each form too. These serializers widen
-// fields to double, hex-encode detail bytes, and escape text; running them over
-// whatever the decode produced exercises that formatting and the schema lookups
-// they perform against real reconstructed columns.
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -29,7 +22,7 @@ void export_channel(const ChannelStore& channels, const SchemaRegistry& schemas,
   export_channel_ndjson(channels, schemas, id, out);
   g_sink += out.size();
 }
-}  // namespace
+}
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   DecodedRecording rec;

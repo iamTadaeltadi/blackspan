@@ -100,8 +100,6 @@ DeriveError DeriveEngine::evaluate(uint16_t derived_id,
 
   const size_t n = primary->total_samples();
 
-  // Each primary sample inherits the base timestamp of the block that carries
-  // it; expand the per-block bases into a per-sample timeline once up front.
   std::vector<uint64_t> timestamps;
   timestamps.reserve(n);
   for (size_t b = 0; b < primary->block_count(); ++b) {
@@ -114,8 +112,7 @@ DeriveError DeriveEngine::evaluate(uint16_t derived_id,
   values.reserve(n);
 
   for (size_t i = 0; i < n; ++i) {
-    // Resolve every field reference against the sample at the same global index
-    // on its channel, latching a specific error for the caller.
+
     DeriveError bind_err = DeriveError::None;
     const ExprBinding bind =
         [&](const FieldReference& ref) -> std::optional<double> {
@@ -162,7 +159,7 @@ std::vector<uint16_t> DeriveEngine::defs() const {
   std::vector<uint16_t> out;
   out.reserve(defs_.size());
   for (const auto& kv : defs_) out.push_back(kv.first);
-  return out;  // std::map iterates keys ascending
+  return out;
 }
 
 const DerivedDefRecord* DeriveEngine::get(uint16_t derived_id) const {
@@ -171,4 +168,4 @@ const DerivedDefRecord* DeriveEngine::get(uint16_t derived_id) const {
   return &it->second.def;
 }
 
-}  // namespace blackspan
+}

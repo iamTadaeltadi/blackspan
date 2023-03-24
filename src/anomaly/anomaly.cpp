@@ -9,8 +9,6 @@ namespace blackspan {
 
 namespace {
 
-// True for record type bytes that the recorder frame format defines. An
-// out-of-range byte (a record type this build does not know) returns false.
 bool is_known_record_type(RecordType t) {
   switch (t) {
     case RecordType::SessionBegin:
@@ -48,7 +46,7 @@ std::string byte_hex(uint8_t v) {
   return std::string(b);
 }
 
-}  // namespace
+}
 
 const char* anomaly_diag_str(AnomalyDiagCode c) {
   switch (c) {
@@ -97,7 +95,6 @@ void AnomalyEngine::handle_transition(uint32_t dev, const Frame& f) {
   ev.continues_chain = continues;
   transitions_.push_back(ev);
 
-  // The new state takes effect whether or not the chain was continuous.
   ds.current_state = rec.to_state;
   ds.has_state = true;
 
@@ -173,7 +170,7 @@ void AnomalyEngine::accept(const Frame& f) {
       handle_fault(dev, f);
       break;
     default:
-      // A valid record owned by another subsystem; not correlated here.
+
       break;
   }
 }
@@ -214,7 +211,6 @@ std::vector<BurstWindow> AnomalyEngine::burst_windows(uint64_t window_ns,
                                                       size_t min_count) const {
   if (min_count == 0) min_count = 1;
 
-  // Group fault indices by device, preserving arrival order within a device.
   std::map<uint32_t, std::vector<size_t>> by_device;
   for (size_t i = 0; i < faults_.size(); ++i) {
     by_device[faults_[i].device_id].push_back(i);
@@ -223,8 +219,7 @@ std::vector<BurstWindow> AnomalyEngine::burst_windows(uint64_t window_ns,
   std::vector<BurstWindow> out;
   for (auto& kv : by_device) {
     std::vector<size_t>& idx = kv.second;
-    // Order this device's faults by timestamp; ties keep arrival order so the
-    // scan below is deterministic regardless of interleaving.
+
     std::stable_sort(idx.begin(), idx.end(), [this](size_t a, size_t b) {
       return faults_[a].monotonic_ts < faults_[b].monotonic_ts;
     });
@@ -250,7 +245,7 @@ std::vector<BurstWindow> AnomalyEngine::burst_windows(uint64_t window_ns,
         w.member_indices.reserve(count);
         for (size_t k = i; k <= j; ++k) w.member_indices.push_back(idx[k]);
         out.push_back(std::move(w));
-        i = j + 1;  // windows do not overlap
+        i = j + 1;
       } else {
         ++i;
       }
@@ -326,4 +321,4 @@ std::string describe_anomaly_summary(const AnomalySummary& s) {
   return out;
 }
 
-}  // namespace blackspan
+}

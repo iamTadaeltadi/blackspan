@@ -10,8 +10,6 @@
 namespace blackspan {
 namespace {
 
-// Parses an unsigned integer token accepting decimal and 0x-hex; returns false
-// on an empty token or any trailing garbage.
 bool parse_uint(const std::string& s, uint64_t& out) {
   if (s.empty()) return false;
   errno = 0;
@@ -22,7 +20,6 @@ bool parse_uint(const std::string& s, uint64_t& out) {
   return true;
 }
 
-// Parses a real token; returns false on an empty token or trailing garbage.
 bool parse_double_token(const std::string& s, double& out) {
   if (s.empty()) return false;
   errno = 0;
@@ -35,7 +32,6 @@ bool parse_double_token(const std::string& s, double& out) {
   return true;
 }
 
-// Maps a rule-text keyword to its kind. Returns false for an unknown keyword.
 bool parse_detect_kind(const std::string& s, DetectKind& out) {
   if (s == "high") { out = DetectKind::ThresholdHigh; return true; }
   if (s == "low") { out = DetectKind::ThresholdLow; return true; }
@@ -46,7 +42,6 @@ bool parse_detect_kind(const std::string& s, DetectKind& out) {
   return false;
 }
 
-// Fills the identity fields of a Detection from its rule.
 Detection make_detection(const DetectRule& rule) {
   Detection d;
   d.rule_id = rule.id;
@@ -108,8 +103,7 @@ void eval_rate_of_change(const std::vector<std::pair<uint64_t, double>>& series,
   for (size_t i = 1; i < series.size(); ++i) {
     uint64_t t_prev = series[i - 1].first;
     uint64_t t_cur = series[i].first;
-    // Guard dt == 0 (and a non-ascending pair) so the slope never divides by
-    // zero: treat such a step as spanning a single nanosecond.
+
     uint64_t dt = (t_cur >= t_prev) ? (t_cur - t_prev) : 0;
     double denom = (dt == 0) ? 1.0 : static_cast<double>(dt);
     double rate = std::fabs(series[i].second - series[i - 1].second) / denom;
@@ -126,17 +120,17 @@ void eval_rate_of_change(const std::vector<std::pair<uint64_t, double>>& series,
 
 void eval_stuck_at(const std::vector<std::pair<uint64_t, double>>& series,
                    const DetectRule& rule, std::vector<Detection>& out) {
-  const size_t run_len = rule.window;  // minimum run length to fire
+  const size_t run_len = rule.window;
   if (run_len == 0 || series.empty()) return;
   const double epsilon = rule.a;
 
-  size_t run = 0;  // length of the current flat run, including the current sample
+  size_t run = 0;
   for (size_t i = 0; i < series.size(); ++i) {
     if (i == 0 ||
         std::fabs(series[i].second - series[i - 1].second) <= epsilon) {
-      ++run;  // extends the current run (the first sample starts a run of 1)
+      ++run;
     } else {
-      run = 1;  // a change larger than epsilon starts a fresh run at this sample
+      run = 1;
     }
     if (run >= run_len) {
       Detection d = make_detection(rule);
@@ -152,25 +146,24 @@ void eval_stuck_at(const std::vector<std::pair<uint64_t, double>>& series,
 void eval_spike(const std::vector<std::pair<uint64_t, double>>& series,
                 const DetectRule& rule, std::vector<Detection>& out) {
   const size_t w = rule.window;
-  // A sample standard deviation needs at least two points, and a full window
-  // must fit within the series; otherwise the detector is a no-op.
+
   if (w < 2 || w > series.size()) return;
   const double k = rule.a;
 
   for (size_t i = w - 1; i < series.size(); ++i) {
-    const size_t begin = i + 1 - w;  // window is [begin, i], exactly w samples
-    // First pass: window mean.
+    const size_t begin = i + 1 - w;
+
     double sum = 0.0;
     for (size_t j = begin; j <= i; ++j) sum += series[j].second;
     double mean = sum / static_cast<double>(w);
-    // Second pass: sum of squared deviations, then the sample variance.
+
     double sq = 0.0;
     for (size_t j = begin; j <= i; ++j) {
       double dv = series[j].second - mean;
       sq += dv * dv;
     }
     double stddev = std::sqrt(sq / static_cast<double>(w - 1));
-    if (!(stddev > 0.0)) continue;  // a flat window (or NaN) never fires
+    if (!(stddev > 0.0)) continue;
 
     double dev = std::fabs(series[i].second - mean);
     if (dev > k * stddev) {
@@ -184,7 +177,7 @@ void eval_spike(const std::vector<std::pair<uint64_t, double>>& series,
   }
 }
 
-}  // namespace
+}
 
 const char* detect_kind_name(DetectKind k) {
   switch (k) {
@@ -238,24 +231,21 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
     else
       start = nl + 1;
 
-    // Strip a trailing comment.
     size_t hash = line.find('#');
     if (hash != std::string::npos) line = line.substr(0, hash);
 
-    // Tokenize on whitespace.
     std::vector<std::string> tok;
     {
       std::istringstream iss(line);
       std::string t;
       while (iss >> t) tok.push_back(t);
     }
-    if (tok.empty()) continue;  // blank or comment-only line (Empty) -> skipped
+    if (tok.empty()) continue;
 
     auto fail = [&](DetectParseError e) {
       result.errors.emplace_back(line_no, e);
     };
 
-    // Every rule needs at least channel, field, and kind.
     if (tok.size() < 3) {
       fail(DetectParseError::MissingField);
       continue;
@@ -282,7 +272,6 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
     rule.field_index = static_cast<size_t>(field_index);
     rule.kind = kind;
 
-    // Parameter tokens follow the kind at tok[3..].
     bool bad = false;
     switch (kind) {
       case DetectKind::ThresholdHigh:
@@ -341,8 +330,6 @@ std::vector<Detection> run_detectors(const ChannelStore& store,
     if (series == nullptr) continue;
     if (rule.field_index >= series->schema().fields.size()) continue;
 
-    // Pull the field's (timestamp, value) series block by block, pairing each
-    // sample with its block's base timestamp, exactly as aggregate.cpp does.
     std::vector<std::pair<uint64_t, double>> pairs;
     size_t global = 0;
     for (size_t b = 0; b < series->block_count(); ++b) {
@@ -361,4 +348,4 @@ std::vector<Detection> run_detectors(const ChannelStore& store,
   return out;
 }
 
-}  // namespace blackspan
+}

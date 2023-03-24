@@ -29,11 +29,9 @@ static void test_pool_basic() {
 
   CHECK(p.free(b));
   CHECK(p.live_count() == 2);
-  CHECK(p.get(b) == nullptr);   // stale handle rejected
-  CHECK(!p.free(b));            // double free rejected
+  CHECK(p.get(b) == nullptr);
+  CHECK(!p.free(b));
 
-  // The freed slot index is reused, but the generation differs so the old
-  // handle stays invalid while the new handle works.
   auto d = p.alloc(40);
   CHECK(d.index == b.index);
   CHECK(d.gen != b.gen);
@@ -51,8 +49,7 @@ static void test_pool_null_handle() {
 }
 
 static void test_pool_destructs_values() {
-  // Exercise a non-trivial element type through alloc/free/clear so the
-  // sanitizer build can confirm there are no leaks or use-after-frees.
+
   Pool<std::string> p;
   auto h1 = p.alloc(std::string(64, 'x'));
   auto h2 = p.alloc("hello");
@@ -73,7 +70,6 @@ static void test_arena() {
   CHECK((reinterpret_cast<uintptr_t>(p2) % 8) == 0);
   CHECK(a.bytes_used() == 20);
 
-  // A request larger than the block size still succeeds via a fresh block.
   void* big = a.allocate(4096, 16);
   CHECK(big != nullptr);
   CHECK((reinterpret_cast<uintptr_t>(big) % 16) == 0);

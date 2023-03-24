@@ -7,8 +7,6 @@
 namespace blackspan {
 namespace {
 
-// The severity assigned to each finding code. Kept in one place so the meaning
-// of a code cannot drift between where it is raised and where it is documented.
 Severity3 severity_of(ValidationCode c) {
   switch (c) {
     case ValidationCode::StreamHalted:
@@ -39,16 +37,12 @@ Severity3 severity_of(ValidationCode c) {
   return Severity3::Note;
 }
 
-// A half-open span of session sequences for one device, used to attribute
-// faults and config changes to the session that was open when they were
-// recorded.
 struct SessionSpan {
   uint32_t begin_seq = 0;
   uint32_t end_seq = 0;
   bool closed = false;
 };
 
-// Accumulates findings and stamps each with the severity its code carries.
 class Builder {
  public:
   explicit Builder(const ValidationOptions& opts) : opts_(opts) {}
@@ -93,7 +87,6 @@ void check_stream(const DecodedRecording& rec, Builder& b) {
   }
 }
 
-// Builds, per device, the ordered spans of its sessions.
 std::map<uint32_t, std::vector<SessionSpan>> build_spans(
     const std::vector<Session>& sessions) {
   std::map<uint32_t, std::vector<SessionSpan>> spans;
@@ -107,7 +100,6 @@ std::map<uint32_t, std::vector<SessionSpan>> build_spans(
   return spans;
 }
 
-// True when a device sequence falls within one of the device's session spans.
 bool seq_in_any_span(const std::map<uint32_t, std::vector<SessionSpan>>& spans,
                      uint32_t dev, uint32_t seq) {
   auto it = spans.find(dev);
@@ -121,9 +113,6 @@ bool seq_in_any_span(const std::map<uint32_t, std::vector<SessionSpan>>& spans,
 void check_sessions(const DecodedRecording& rec, Builder& b) {
   const std::vector<Session>& sessions = rec.sessions().sessions();
 
-  // Which devices recorded any anomaly activity in a given session span is
-  // needed for the "no activity" check; build a per-device sorted list of the
-  // sequences at which faults/transitions/configs occurred.
   std::map<uint32_t, std::vector<uint32_t>> activity;
   for (const FaultEvent& f : rec.anomalies().faults())
     activity[f.device_id].push_back(f.session_seq);
@@ -156,7 +145,6 @@ void check_sessions(const DecodedRecording& rec, Builder& b) {
                 " began and ended at ts " + std::to_string(s.begin_ts));
     }
 
-    // No checkpoints/markers/reconnects and no anomaly activity within the span.
     bool has_side_records = !s.checkpoints.empty() || !s.markers.empty() ||
                             !s.reconnects.empty();
     bool has_activity = has_side_records;
@@ -178,7 +166,6 @@ void check_sessions(const DecodedRecording& rec, Builder& b) {
     }
   }
 
-  // End-without-begin surfaces as a session diagnostic; promote it to a finding.
   for (const SessionDiagnostic& d : rec.sessions().diagnostics()) {
     if (d.code == SessionDiagCode::EndWithoutBegin) {
       b.add(ValidationCode::EndWithoutBegin, d.device_id, d.session_seq,
@@ -210,8 +197,6 @@ void check_channels(const DecodedRecording& rec, Builder& b) {
     }
   }
 
-  // A channel with samples but no schema cannot arise from the decode pipeline
-  // (the store refuses such blocks), but the check documents the invariant.
   for (uint16_t id : channels.channels()) {
     if (!schemas.contains(id)) {
       b.add(ValidationCode::ChannelSampledUndeclared, 0, 0,
@@ -277,7 +262,7 @@ void check_cross(const DecodedRecording& rec, Builder& b) {
   }
 }
 
-}  // namespace
+}
 
 const char* severity3_name(Severity3 s) {
   switch (s) {
@@ -328,8 +313,7 @@ std::string describe_finding(const Finding& f) {
 ValidationReport ValidationReport::run(const DecodedRecording& rec,
                                        const ValidationOptions& opts) {
   Builder b(opts);
-  // The check order defines the deterministic finding order: stream, session,
-  // channel, anomaly, cross-subsystem.
+
   check_stream(rec, b);
   check_sessions(rec, b);
   check_channels(rec, b);
@@ -379,4 +363,4 @@ std::string render_validation(const ValidationReport& report) {
   return out;
 }
 
-}  // namespace blackspan
+}

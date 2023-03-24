@@ -11,14 +11,12 @@ namespace {
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
-// Arithmetic mean of a non-empty vector.
 double mean_of(const std::vector<double>& xs) {
   double sum = 0.0;
   for (const double v : xs) sum += v;
   return sum / static_cast<double>(xs.size());
 }
 
-// The p-th percentile of an already-sorted, non-empty vector under method m.
 double percentile_sorted(const std::vector<double>& s, double p,
                          PercentileMethod m) {
   const size_t n = s.size();
@@ -26,7 +24,7 @@ double percentile_sorted(const std::vector<double>& s, double p,
 
   if (m == PercentileMethod::NearestRank) {
     if (p <= 0.0) return s.front();
-    // Ordinal rank ceil(p/100 * N), 1-based, clamped into [1, N].
+
     double rankf = std::ceil((p / 100.0) * static_cast<double>(n));
     if (rankf < 1.0) rankf = 1.0;
     if (rankf > static_cast<double>(n)) rankf = static_cast<double>(n);
@@ -34,20 +32,16 @@ double percentile_sorted(const std::vector<double>& s, double p,
     return s[idx];
   }
 
-  // Linear: interpolate between the order statistics bracketing the fractional
-  // rank p/100 * (n - 1).
   const double rank = (p / 100.0) * static_cast<double>(n - 1);
   const double lo_pos = std::floor(rank);
   const size_t lo_index = static_cast<size_t>(lo_pos);
-  if (lo_index >= n - 1) return s.back();  // rank == n - 1
+  if (lo_index >= n - 1) return s.back();
   const double frac = rank - lo_pos;
   const double a = s[lo_index];
   const double b = s[lo_index + 1];
   return a + frac * (b - a);
 }
 
-// Central moments m2/m3/m4 (population, divided by N) about the mean, for a
-// non-empty vector. Returns the mean and the three moments through out-params.
 void central_moments(const std::vector<double>& xs, double& mean, double& m2,
                      double& m3, double& m4) {
   mean = mean_of(xs);
@@ -65,13 +59,13 @@ void central_moments(const std::vector<double>& xs, double& mean, double& m2,
   m4 = s4 / n;
 }
 
-}  // namespace
+}
 
 double percentile(const std::vector<double>& xs, double p, PercentileMethod m) {
   if (xs.empty() || std::isnan(p)) return kNaN;
   if (p < 0.0) p = 0.0;
   if (p > 100.0) p = 100.0;
-  std::vector<double> s = xs;  // sort a local copy; leave xs untouched
+  std::vector<double> s = xs;
   std::sort(s.begin(), s.end());
   return percentile_sorted(s, p, m);
 }
@@ -82,7 +76,7 @@ double median(const std::vector<double>& xs) {
 
 double quantile_iqr(const std::vector<double>& xs) {
   if (xs.empty()) return kNaN;
-  // Sort once and read both quartiles off the same sorted copy.
+
   std::vector<double> s = xs;
   std::sort(s.begin(), s.end());
   const double q75 = percentile_sorted(s, 75.0, PercentileMethod::Linear);
@@ -93,7 +87,7 @@ double quantile_iqr(const std::vector<double>& xs) {
 double variance(const std::vector<double>& xs, bool sample) {
   const size_t n = xs.size();
   if (n == 0) return 0.0;
-  if (sample && n < 2) return 0.0;  // N - 1 == 0 is undefined
+  if (sample && n < 2) return 0.0;
 
   const double mean = mean_of(xs);
   double sq_dev = 0.0;
@@ -114,7 +108,7 @@ double skewness(const std::vector<double>& xs) {
   if (xs.size() < 3) return 0.0;
   double mean, m2, m3, m4;
   central_moments(xs, mean, m2, m3, m4);
-  if (!(m2 > 0.0)) return 0.0;  // zero-variance series: undefined
+  if (!(m2 > 0.0)) return 0.0;
   return m3 / std::pow(m2, 1.5);
 }
 
@@ -122,30 +116,30 @@ double kurtosis_excess(const std::vector<double>& xs) {
   if (xs.size() < 2) return 0.0;
   double mean, m2, m3, m4;
   central_moments(xs, mean, m2, m3, m4);
-  if (!(m2 > 0.0)) return 0.0;  // zero-variance series: undefined
+  if (!(m2 > 0.0)) return 0.0;
   return m4 / (m2 * m2) - 3.0;
 }
 
 Histogram histogram(const std::vector<double>& xs, size_t bins) {
   Histogram h;
-  if (bins == 0) return h;  // no buckets to bin into
+  if (bins == 0) return h;
   h.counts.assign(bins, 0);
-  if (xs.empty()) return h;  // all-zero counts, [0, 0] range
+  if (xs.empty()) return h;
 
   h.lo = *std::min_element(xs.begin(), xs.end());
   h.hi = *std::max_element(xs.begin(), xs.end());
 
-  const bool degenerate = !(h.hi > h.lo);  // max == min (or NaN-safe fallback)
+  const bool degenerate = !(h.hi > h.lo);
   h.width =
       degenerate ? 0.0 : (h.hi - h.lo) / static_cast<double>(bins);
 
   for (const double x : xs) {
     if (degenerate) {
-      ++h.counts[0];  // every value equals the single point lo == hi
+      ++h.counts[0];
       continue;
     }
     size_t idx = static_cast<size_t>((x - h.lo) / h.width);
-    if (idx >= bins) idx = bins - 1;  // x == hi lands in the last bucket
+    if (idx >= bins) idx = bins - 1;
     ++h.counts[idx];
   }
   return h;
@@ -158,7 +152,7 @@ std::vector<double> ewma(const std::vector<double>& xs, double alpha) {
   if (alpha > 1.0) alpha = 1.0;
 
   out.reserve(xs.size());
-  out.push_back(xs[0]);  // seed the recurrence with the first sample
+  out.push_back(xs[0]);
   const double beta = 1.0 - alpha;
   for (size_t i = 1; i < xs.size(); ++i) {
     out.push_back(alpha * xs[i] + beta * out[i - 1]);
@@ -171,12 +165,10 @@ bool linear_fit(const std::vector<double>& xs, const std::vector<double>& ys,
   out = LinearFit{};
   const size_t n = std::min(xs.size(), ys.size());
   if (n < 2) {
-    if (n == 1) out.intercept = ys[0];  // mean of the single y value
+    if (n == 1) out.intercept = ys[0];
     return false;
   }
 
-  // Two-pass fit: means first, then centered cross- and self-products, which is
-  // numerically steadier than accumulating raw sums of squares.
   double mx = 0.0, my = 0.0;
   for (size_t i = 0; i < n; ++i) {
     mx += xs[i];
@@ -194,14 +186,14 @@ bool linear_fit(const std::vector<double>& xs, const std::vector<double>& ys,
     syy += dy * dy;
   }
 
-  if (!(sxx > 0.0)) {          // zero x-variance: the slope is undefined
-    out.intercept = my;        // best constant predictor is the mean of y
+  if (!(sxx > 0.0)) {
+    out.intercept = my;
     return false;
   }
 
   out.slope = sxy / sxx;
   out.intercept = my - out.slope * mx;
-  // r2 = explained / total; with a constant y (syy == 0) it is left at 0.
+
   out.r2 = (syy > 0.0) ? (sxy * sxy) / (sxx * syy) : 0.0;
   return true;
 }
@@ -219,7 +211,7 @@ std::vector<size_t> mad_outliers(const std::vector<double>& xs, double k) {
   std::vector<size_t> out;
   if (xs.empty()) return out;
   const double m = mad(xs);
-  if (!(m > 0.0)) return out;  // constant series: no dispersion, no outliers
+  if (!(m > 0.0)) return out;
   const double med = median(xs);
   for (size_t i = 0; i < xs.size(); ++i) {
     if (std::fabs(xs[i] - med) / m > k) out.push_back(i);
@@ -229,7 +221,7 @@ std::vector<size_t> mad_outliers(const std::vector<double>& xs, double k) {
 
 double autocorrelation(const std::vector<double>& xs, size_t lag) {
   const size_t n = xs.size();
-  if (lag == 0 || lag >= n) return 0.0;  // out-of-range lag
+  if (lag == 0 || lag >= n) return 0.0;
 
   const double mean = mean_of(xs);
   double denom = 0.0;
@@ -237,7 +229,7 @@ double autocorrelation(const std::vector<double>& xs, size_t lag) {
     const double d = v - mean;
     denom += d * d;
   }
-  if (!(denom > 0.0)) return 0.0;  // zero-variance series
+  if (!(denom > 0.0)) return 0.0;
 
   double numer = 0.0;
   for (size_t t = 0; t + lag < n; ++t) {
@@ -248,7 +240,7 @@ double autocorrelation(const std::vector<double>& xs, size_t lag) {
 
 std::vector<double> channel_column(const ChannelStore& store,
                                    uint16_t channel_id, size_t field_index) {
-  // Reuse the aggregate subsystem's block-walk, then drop the timestamps.
+
   const std::vector<std::pair<uint64_t, double>> pairs =
       column_with_timestamps(store, channel_id, field_index);
   std::vector<double> out;
@@ -257,4 +249,4 @@ std::vector<double> channel_column(const ChannelStore& store,
   return out;
 }
 
-}  // namespace blackspan
+}

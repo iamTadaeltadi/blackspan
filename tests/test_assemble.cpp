@@ -24,8 +24,6 @@ static int failures = 0;
     }                                                           \
   } while (0)
 
-// ---- lexer ---------------------------------------------------------------
-
 static void test_lex_blank_and_comment() {
   ScriptLine l;
   AssembleError err = AssembleError::None;
@@ -59,7 +57,7 @@ static void test_lex_directive_forms() {
     CHECK(find_arg(l, "missing") == nullptr);
   }
   {
-    // A quoted value keeps its spaces; a trailing comment is stripped.
+
     ScriptLine l;
     AssembleError err = AssembleError::None;
     CHECK(lex_script_line("marker text=\"a b  c\" kind=2  # note", l, &err));
@@ -70,7 +68,7 @@ static void test_lex_directive_forms() {
     CHECK(find_arg(l, "kind")->value == "2");
   }
   {
-    // An empty quoted value is distinguishable from an absent one.
+
     ScriptLine l;
     AssembleError err = AssembleError::None;
     CHECK(lex_script_line("marker text=\"\"", l, &err));
@@ -108,8 +106,6 @@ static void test_lex_errors() {
   }
 }
 
-// ---- value parsers -------------------------------------------------------
-
 static void test_parse_uint() {
   uint64_t v = 0;
   CHECK(parse_uint("0", UINT64_MAX, v) && v == 0);
@@ -125,8 +121,8 @@ static void test_parse_uint() {
   CHECK(!parse_uint("12a", UINT64_MAX, v));
   CHECK(!parse_uint("0x", UINT64_MAX, v));
   CHECK(!parse_uint("0b2", UINT64_MAX, v));
-  CHECK(!parse_uint("18446744073709551616", UINT64_MAX, v));  // overflows
-  CHECK(!parse_uint("256", UINT8_MAX, v));                    // exceeds max
+  CHECK(!parse_uint("18446744073709551616", UINT64_MAX, v));
+  CHECK(!parse_uint("256", UINT8_MAX, v));
   CHECK(parse_uint("255", UINT8_MAX, v) && v == 255);
 }
 
@@ -179,11 +175,9 @@ static void test_parse_hex() {
   CHECK(parse_hex_bytes("00ff10", out) && out.size() == 3);
   CHECK(out[0] == 0x00 && out[1] == 0xff && out[2] == 0x10);
   CHECK(parse_hex_bytes("AbCd", out) && out[0] == 0xab && out[1] == 0xcd);
-  CHECK(!parse_hex_bytes("abc", out));   // odd length
-  CHECK(!parse_hex_bytes("zz", out));    // non-hex digit
+  CHECK(!parse_hex_bytes("abc", out));
+  CHECK(!parse_hex_bytes("zz", out));
 }
-
-// ---- schema tracking and row encoding ------------------------------------
 
 static ChannelSchema imu_schema(uint16_t id = 3) {
   ChannelSchema s;
@@ -205,7 +199,7 @@ static void test_script_schemas() {
   ScriptSchemas ss;
   ChannelSchema a = imu_schema();
   CHECK(ss.declare(a) == 1);
-  CHECK(ss.declare(a) == 1);  // identical layout reuses its version
+  CHECK(ss.declare(a) == 1);
   CHECK(ss.latest_version(3) == 1);
   CHECK(ss.channel_count() == 1);
 
@@ -241,10 +235,9 @@ static void test_encode_sample_row() {
   CHECK(seq == 100);
   CHECK(out[8] == 1);
 
-  // Wrong value count.
   out.clear();
   CHECK(!encode_sample_row(s, {"1.5", "100"}, out, &bad));
-  // A value out of its field's range is rejected, naming the field index.
+
   out.clear();
   CHECK(!encode_sample_row(s, {"1.5", "100", "256"}, out, &bad));
   CHECK(bad == 2);
@@ -252,7 +245,6 @@ static void test_encode_sample_row() {
   CHECK(!encode_sample_row(s, {"x", "100", "1"}, out, &bad));
   CHECK(bad == 0);
 
-  // Signed fields accept negatives and reject out-of-range magnitudes.
   ChannelSchema t;
   t.channel_id = 9;
   t.name = "t";
@@ -267,8 +259,6 @@ static void test_encode_sample_row() {
   out.clear();
   CHECK(!encode_sample_row(t, {"40000"}, out, &bad));
 }
-
-// ---- end-to-end assembly -------------------------------------------------
 
 static const char* kFullScript =
     "# a complete single-session recording\n"
@@ -307,7 +297,6 @@ static void test_assemble_full_recording() {
   CHECK(rec.frame_count() == 11);
   CHECK(rec.final_status() == FrameStatus::Ok);
 
-  // Session reconstruction: one closed session with the declared metadata.
   const std::vector<Session>& sessions = rec.sessions().sessions();
   CHECK(sessions.size() == 1);
   if (sessions.size() == 1) {
@@ -335,7 +324,6 @@ static void test_assemble_full_recording() {
   }
   CHECK(rec.sessions().diagnostics().empty());
 
-  // Schema and channel reconstruction.
   CHECK(rec.schemas().count() == 1);
   const ChannelSchema* cs = rec.schemas().latest(3);
   CHECK(cs != nullptr);
@@ -353,7 +341,7 @@ static void test_assemble_full_recording() {
   if (series) {
     CHECK(series->total_samples() == 2);
     CHECK(series->block_count() == 1);
-    CHECK(series->block_base_ts(0) == 1025);  // frame ts 1020 + delta 5
+    CHECK(series->block_base_ts(0) == 1025);
     auto v0 = series->view(0);
     auto v1 = series->view(1);
     CHECK(v0.has_value() && v1.has_value());
@@ -367,7 +355,6 @@ static void test_assemble_full_recording() {
     }
   }
 
-  // Anomaly correlation: the fault inherits the state the transition set.
   CHECK(rec.anomalies().transitions().size() == 1);
   CHECK(rec.anomalies().config_changes().size() == 1);
   const std::vector<FaultEvent>& faults = rec.anomalies().faults();
@@ -387,8 +374,6 @@ static void test_assemble_full_recording() {
   }
 }
 
-// The derived-def and export-request frames the script emits decode into the
-// records their owning subsystems expect.
 static void test_assemble_derived_and_export() {
   AssembleResult r = assemble_script(kFullScript);
   CHECK(r.ok());
@@ -419,7 +404,6 @@ static void test_assemble_derived_and_export() {
   CHECK(saw_derived);
   CHECK(saw_export);
 
-  // The derived definition evaluates against the assembled samples.
   DecodedRecording rec;
   rec.decode(r.bytes.data(), r.bytes.size());
   DeriveEngine engine;
@@ -438,7 +422,6 @@ static void test_assemble_derived_and_export() {
   }
 }
 
-// Assembling the same script twice yields byte-identical output.
 static void test_assemble_deterministic() {
   AssembleResult a = assemble_script(kFullScript);
   AssembleResult b = assemble_script(kFullScript);
@@ -475,8 +458,7 @@ static void test_assemble_multi_device() {
 }
 
 static void test_assemble_header_overrides() {
-  // A per-directive override applies to that frame only; the running counters
-  // keep advancing from the stream state.
+
   const char* script =
       "device 7\n"
       "session 10\n"
@@ -527,14 +509,11 @@ static void test_assemble_schema_versions() {
   CHECK(rec.schemas().total_versions() == 2);
   CHECK(rec.schemas().versions(4).size() == 2);
 
-  // The store pins a series to the first version it saw, so the later blocks
-  // are refused rather than mixed in; that is the decoder's rule, and the
-  // assembler faithfully produced blocks naming both versions.
   const ChannelSeries* s = rec.channels().series(4);
   CHECK(s != nullptr);
   if (s) {
     CHECK(s->schema_version() == 1);
-    CHECK(s->total_samples() == 2);  // the two version-1 blocks
+    CHECK(s->total_samples() == 2);
   }
 }
 
@@ -551,7 +530,7 @@ static void test_assemble_raw_and_hex() {
   rec.decode(r.bytes.data(), r.bytes.size());
   CHECK(rec.anomalies().faults().size() == 1);
   if (rec.anomalies().faults().size() == 1) {
-    // 21 00 | 02 | 03 | 00 -> code 0x21, severity error, subsystem 3, no detail
+
     const FaultEvent& f = rec.anomalies().faults()[0];
     CHECK(f.fault_code == 0x21);
     CHECK(f.severity == Severity::Error);
@@ -559,8 +538,6 @@ static void test_assemble_raw_and_hex() {
     CHECK(f.detail.empty());
   }
 }
-
-// ---- damage --------------------------------------------------------------
 
 static void test_assemble_damage() {
   struct Case {
@@ -589,7 +566,7 @@ static void test_assemble_damage() {
 
     DecodedRecording rec;
     rec.decode(r.bytes.data(), r.bytes.size());
-    // The first frame still decodes; the damaged one halts the stream.
+
     CHECK(rec.frame_count() == 1);
     if (rec.final_status() != c.expect) {
       std::fprintf(stderr, "damage %s: got %s, want %s\n", c.mode,
@@ -615,8 +592,6 @@ static void test_assemble_damage_truncate() {
   CHECK(rec.final_status() == FrameStatus::Incomplete);
 }
 
-// ---- diagnostics ---------------------------------------------------------
-
 static bool has_error(const AssembleResult& r, AssembleError e, size_t line) {
   for (const AssembleDiagnostic& d : r.errors) {
     if (d.error == e && d.line == line) return true;
@@ -636,7 +611,7 @@ static void test_assemble_diagnostics() {
       "samples channel=77\n";
   AssembleResult r = assemble_script(script);
   CHECK(!r.ok());
-  CHECK(r.bytes.empty());  // no bytes are produced for a failed script
+  CHECK(r.bytes.empty());
   CHECK(has_error(r, AssembleError::UnknownDirective, 2));
   CHECK(has_error(r, AssembleError::ValueOutOfRange, 3));
   CHECK(has_error(r, AssembleError::MissingArgument, 4));

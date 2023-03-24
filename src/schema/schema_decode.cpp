@@ -77,4 +77,4 @@ SchemaDecodeResult decode_channel_schema(const uint8_t* payload, size_t len) {
   return res;
 }
 
-}  // namespace blackspan
+}

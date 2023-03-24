@@ -14,8 +14,6 @@ std::string hex8(uint32_t v) {
   return b;
 }
 
-// Builds a per-device map of session_index -> session for one recording, so the
-// two recordings' sessions can be matched by (device, index).
 std::map<uint64_t, const Session*> index_sessions(
     const std::vector<Session>& sessions) {
   std::map<uint64_t, const Session*> out;
@@ -26,9 +24,6 @@ std::map<uint64_t, const Session*> index_sessions(
   return out;
 }
 
-// A compact fingerprint of a session's shape, used to decide whether two
-// same-keyed sessions differ. Two sessions with the same fingerprint are
-// considered structurally equal for diff purposes.
 std::string session_fingerprint(const Session& s) {
   char b[192];
   std::snprintf(b, sizeof(b),
@@ -121,8 +116,6 @@ void diff_channels(const DecodedRecording& left, const DecodedRecording& right,
       continue;
     }
 
-    // Present in both: compare schema version count and layout, then sample
-    // count.
     size_t lv = ls.versions(id).size();
     size_t rv = rs.versions(id).size();
     if (lv != rv) {
@@ -213,7 +206,7 @@ void diff_anomalies(const DecodedRecording& left, const DecodedRecording& right,
   }
 }
 
-}  // namespace
+}
 
 const char* diff_side_name(DiffSide s) {
   switch (s) {
@@ -248,8 +241,7 @@ std::string describe_difference(const Difference& d) {
 RecordingDiff RecordingDiff::compare(const DecodedRecording& left,
                                      const DecodedRecording& right) {
   RecordingDiff diff;
-  // The comparison order defines the deterministic difference order: sessions,
-  // channels/schemas, anomalies.
+
   diff_sessions(left, right, diff.diffs_);
   diff_channels(left, right, diff.diffs_);
   diff_anomalies(left, right, diff.diffs_);
@@ -288,4 +280,4 @@ std::string render_diff(const RecordingDiff& diff) {
   return out;
 }
 
-}  // namespace blackspan
+}

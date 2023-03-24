@@ -40,8 +40,8 @@ void put_schema(std::vector<uint8_t>& wire, uint16_t channel_id,
                 uint8_t field_type, uint32_t seq, uint64_t ts) {
   ByteWriter p;
   p.u16(channel_id);
-  p.u8(1);  // declared_version
-  p.u8(1);  // field_count
+  p.u8(1);
+  p.u8(1);
   p.u8(static_cast<uint8_t>(cname.size()));
   p.bytes(reinterpret_cast<const uint8_t*>(cname.data()), cname.size());
   p.u8(field_type);
@@ -50,34 +50,29 @@ void put_schema(std::vector<uint8_t>& wire, uint16_t channel_id,
   put_frame(wire, RecordType::SchemaDef, 0x100, seq, ts, p.buf());
 }
 
-// Builds two channels:
-//   channel 1 ("temp"): one u16 field "raw", samples {100,200,300}, base_ts 5000
-//   channel 2 ("c2"):   one u16 field `a"b` (a quote in the name), sample {42},
-//                       base_ts 7000. Used to exercise CSV quoting / JSON
-//                       escaping of a schema-derived name.
 void build_channels(SchemaRegistry& schemas, ChannelStore& channels) {
   std::vector<uint8_t> wire;
-  put_schema(wire, 1, "temp", "raw", 3 /*U16*/, 0, 900);
+  put_schema(wire, 1, "temp", "raw", 3 , 0, 900);
   {
     ByteWriter p;
-    p.u16(1);      // channel_id
-    p.u16(1);      // schema_version
-    p.u32(0);      // base_ts_delta
-    p.u16(3);      // sample_count
-    p.u16(0);      // flags
+    p.u16(1);
+    p.u16(1);
+    p.u32(0);
+    p.u16(3);
+    p.u16(0);
     p.u16(100);
     p.u16(200);
     p.u16(300);
     put_frame(wire, RecordType::SampleBlock, 0x100, 1, 5000, p.buf());
   }
-  put_schema(wire, 2, "c2", "a\"b", 3 /*U16*/, 2, 6900);
+  put_schema(wire, 2, "c2", "a\"b", 3 , 2, 6900);
   {
     ByteWriter p;
-    p.u16(2);      // channel_id
-    p.u16(1);      // schema_version
-    p.u32(0);      // base_ts_delta
-    p.u16(1);      // sample_count
-    p.u16(0);      // flags
+    p.u16(2);
+    p.u16(1);
+    p.u32(0);
+    p.u16(1);
+    p.u16(0);
     p.u16(42);
     put_frame(wire, RecordType::SampleBlock, 0x100, 3, 7000, p.buf());
   }
@@ -108,17 +103,15 @@ void put_transition(std::vector<uint8_t>& wire, uint32_t seq, uint64_t ts,
   p.u16(from_state);
   p.u16(to_state);
   p.u8(cause);
-  p.u8(0);  // reserved
+  p.u8(0);
   put_frame(wire, RecordType::StateTransition, 0x100, seq, ts, p.buf());
 }
 
-// Builds an engine holding, in stream order: fault A (before any transition, so
-// its state is unknown), a transition into state 5, then fault B (state 5).
 void build_anomalies(AnomalyEngine& engine) {
   std::vector<uint8_t> wire;
-  put_fault(wire, 1, 1000, 16, 2 /*Error*/, 3, {0xDE, 0xAD});
+  put_fault(wire, 1, 1000, 16, 2 , 3, {0xDE, 0xAD});
   put_transition(wire, 2, 1050, 0, 5, 2);
-  put_fault(wire, 3, 1100, 32, 0 /*Info*/, 1, {});
+  put_fault(wire, 3, 1100, 32, 0 , 1, {});
   engine.ingest(wire.data(), wire.size());
 }
 
@@ -143,7 +136,7 @@ std::vector<Session> build_sessions() {
   b.device_id = 0x200;
   b.session_index = 1;
   b.device_class = 8;
-  b.label = "a,b\"c";  // comma and quote, to exercise field quoting
+  b.label = "a,b\"c";
   b.begin_seq = 10;
   b.begin_ts = 6000;
   b.closed = false;
@@ -168,30 +161,29 @@ size_t count_lines(const std::string& s) {
   return n;
 }
 
-}  // namespace
+}
 
 static void test_quote_field() {
-  // CSV: plain fields pass through untouched.
+
   CHECK(quote_field("hello", DelimFormat::Csv) == "hello");
   CHECK(quote_field("", DelimFormat::Csv) == "");
-  // CSV: a comma forces quoting.
+
   CHECK(quote_field("a,b", DelimFormat::Csv) == "\"a,b\"");
-  // CSV: an internal quote is doubled and the field is wrapped.
+
   CHECK(quote_field("a\"b", DelimFormat::Csv) == "\"a\"\"b\"");
-  // CSV: a newline (and a carriage return) forces quoting.
+
   CHECK(quote_field("a\nb", DelimFormat::Csv) == "\"a\nb\"");
   CHECK(quote_field("a\rb", DelimFormat::Csv) == "\"a\rb\"");
-  // CSV: a field that is a bare quote becomes """" (open, doubled, close).
+
   CHECK(quote_field("\"", DelimFormat::Csv) == "\"\"\"\"");
 
-  // TSV: plain fields pass through.
   CHECK(quote_field("hello", DelimFormat::Tsv) == "hello");
-  // TSV: tab, newline, CR, and backslash get C-style escapes.
+
   CHECK(quote_field("a\tb", DelimFormat::Tsv) == "a\\tb");
   CHECK(quote_field("a\nb", DelimFormat::Tsv) == "a\\nb");
   CHECK(quote_field("a\rb", DelimFormat::Tsv) == "a\\rb");
   CHECK(quote_field("a\\b", DelimFormat::Tsv) == "a\\\\b");
-  // TSV: a comma is not special (tab is the delimiter).
+
   CHECK(quote_field("a,b", DelimFormat::Tsv) == "a,b");
 
   CHECK(delim_char(DelimFormat::Csv) == ',');
@@ -221,7 +213,6 @@ static void test_channel_delimited() {
         "1\t5000\t200\n"
         "2\t5000\t300\n");
 
-  // Channel 2's field name contains a quote: the CSV header must quote it.
   std::string csv2;
   CHECK(export_channel_delimited(channels, schemas, 2, DelimFormat::Csv, csv2) ==
         TableExportError::None);
@@ -229,13 +220,11 @@ static void test_channel_delimited() {
         "index,timestamp,\"a\"\"b\"\n"
         "0,7000,42\n");
 
-  // Unknown channel is an error and leaves the output empty.
   std::string bad = "leftover";
   CHECK(export_channel_delimited(channels, schemas, 99, DelimFormat::Csv,
                                  bad) == TableExportError::UnknownChannel);
   CHECK(bad.empty());
 
-  // Determinism: rendering the same model twice yields identical bytes.
   std::string again;
   export_channel_delimited(channels, schemas, 1, DelimFormat::Csv, again);
   CHECK(again == csv);
@@ -276,18 +265,17 @@ static void test_sessions_delimited() {
   std::string out;
   CHECK(export_sessions_delimited(sessions, DelimFormat::Csv, out) ==
         TableExportError::None);
-  // Header lists every column.
+
   const std::string header =
       "device,session_index,device_class,fw_major,fw_minor,fw_patch,"
       "schema_epoch,label,begin_seq,begin_ts,end_seq,end_ts,closed,end_reason,"
       "duration_ns,checkpoints,reconnects,markers,seq_regressions,"
       "ts_regressions\n";
   CHECK(out.compare(0, header.size(), header) == 0);
-  // First session: closed, duration 4000, plain label.
+
   CHECK(contains(out, "00000100,0,7,1,2,3,99,clean,1,1000,9,5000,true,0,4000,"
                       "0,0,0,0,0\n"));
-  // Second session: a comma+quote label must be CSV-quoted, unterminated so
-  // duration is 0 and closed is false.
+
   CHECK(contains(out, "00000200,1,8,0,0,0,0,\"a,b\"\"c\",10,6000,0,0,false,0,"
                       "0,0,0,0,0,0\n"));
 }
@@ -303,17 +291,15 @@ static void test_ndjson() {
   CHECK(count_lines(chan) == 3);
   CHECK(chan.front() == '{');
   CHECK(ends_with(chan, "}\n"));
-  // Each line is one self-contained object with the expected members.
+
   CHECK(contains(chan, "{\"index\":0,\"timestamp\":5000,\"raw\":100}\n"));
   CHECK(contains(chan, "{\"index\":2,\"timestamp\":5000,\"raw\":300}\n"));
 
-  // Channel 2's field name has a quote: the JSON key must be escaped.
   std::string chan2;
   CHECK(export_channel_ndjson(channels, schemas, 2, chan2) ==
         TableExportError::None);
   CHECK(chan2 == "{\"index\":0,\"timestamp\":7000,\"a\\\"b\":42}\n");
 
-  // Unknown channel -> error, empty output.
   std::string bad = "x";
   CHECK(export_channel_ndjson(channels, schemas, 42, bad) ==
         TableExportError::UnknownChannel);
@@ -324,18 +310,17 @@ static void test_ndjson() {
   std::string faults;
   CHECK(export_faults_ndjson(engine, faults) == TableExportError::None);
   CHECK(count_lines(faults) == 2);
-  // Fault A: hex detail, error severity, no known state.
+
   CHECK(contains(faults,
                  "{\"device_id\":256,\"session_seq\":1,\"monotonic_ts\":1000,"
                  "\"fault_code\":16,\"severity\":\"error\",\"subsystem_id\":3,"
                  "\"detail\":\"dead\",\"state_at_fault\":null}\n"));
-  // Fault B: empty detail, info severity, state 5.
+
   CHECK(contains(faults,
                  "{\"device_id\":256,\"session_seq\":3,\"monotonic_ts\":1100,"
                  "\"fault_code\":32,\"severity\":\"info\",\"subsystem_id\":1,"
                  "\"detail\":\"\",\"state_at_fault\":5}\n"));
 
-  // Determinism.
   std::string again;
   export_faults_ndjson(engine, again);
   CHECK(again == faults);
