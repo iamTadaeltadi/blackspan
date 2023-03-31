@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "blackspan/digest.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/report.h"
 #include "blackspan/session.h"
@@ -30,6 +31,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   g_sink += render_json(model, mask).size();
   g_sink += render_dot(model, mask).size();
   g_sink += render(model, ReportFormat::Text, kSectionAll).size();
+
+  for (const ChannelDigest& d : channel_digests(rec.channels())) {
+    g_sink += d.samples;
+    g_sink += d.buckets.size();
+    g_sink += describe_digest(d).size();
+  }
 
   if (size >= kExportRequestSize) {
     ExportRequest req;
