@@ -5,6 +5,7 @@
 
 #include "blackspan/export.h"
 #include "blackspan/pipeline.h"
+#include "blackspan/rank.h"
 #include "blackspan/session.h"
 
 using namespace blackspan;
@@ -34,6 +35,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   for (uint16_t id : channels.channels()) {
     export_channel(channels, schemas, id);
+  }
+
+  for (const ChannelRanks& r : channel_ranks(channels)) {
+    g_sink += r.samples;
+    g_sink += r.ranks.size();
+    g_sink += describe_ranks(r).size();
   }
 
   std::string out;
