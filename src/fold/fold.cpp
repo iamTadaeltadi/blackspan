@@ -12,6 +12,7 @@ namespace blackspan {
 namespace {
 
 constexpr double kFoundStrength = 0.5;
+constexpr double kHarmonicTolerance = 0.02;
 constexpr size_t kMinSamples = 4;
 
 double clamp_unit(double v) {
@@ -19,6 +20,8 @@ double clamp_unit(double v) {
   if (v > 1.0) return 1.0;
   return v;
 }
+
+bool close_enough(double a, double b) { return std::fabs(a - b) < 1e-12; }
 
 size_t clamp_period_range(size_t value, size_t lo, size_t hi) {
   if (value < lo) return lo;
@@ -36,6 +39,46 @@ double residual_variance(const std::vector<double>& xs,
     sum_sq += d * d;
   }
   return sum_sq / static_cast<double>(xs.size());
+}
+
+double window_correlation(const std::vector<double>& xs, size_t a, size_t b,
+                          size_t len) {
+  double mean_a = 0.0;
+  double mean_b = 0.0;
+  for (size_t k = 0; k < len; ++k) {
+    mean_a += xs[a + k];
+    mean_b += xs[b + k];
+  }
+  mean_a /= static_cast<double>(len);
+  mean_b /= static_cast<double>(len);
+
+  double saa = 0.0;
+  double sbb = 0.0;
+  double sab = 0.0;
+  for (size_t k = 0; k < len; ++k) {
+    const double da = xs[a + k] - mean_a;
+    const double db = xs[b + k] - mean_b;
+    saa += da * da;
+    sbb += db * db;
+    sab += da * db;
+  }
+  if (!(saa > 0.0) || !(sbb > 0.0)) {
+    return (saa == 0.0 && sbb == 0.0 && close_enough(mean_a, mean_b)) ? 1.0
+                                                                      : 0.0;
+  }
+  return sab / std::sqrt(saa * sbb);
+}
+
+bool clamp_scan_range(size_t n, size_t min_period, size_t max_period,
+                      size_t& lo, size_t& hi) {
+  if (n < kMinSamples) return false;
+  if (max_period < min_period) return false;
+  const size_t upper = n / 2;
+  if (upper < 1) return false;
+  lo = min_period < 1 ? 1 : min_period;
+  hi = clamp_period_range(max_period, 1, upper);
+  lo = clamp_period_range(lo, 1, upper);
+  return hi >= lo;
 }
 
 }
@@ -87,30 +130,67 @@ double periodicity_score(const std::vector<double>& xs, size_t period) {
   return clamp_unit(1.0 - residual / total);
 }
 
+double cycle_consistency(const std::vector<double>& xs, size_t period) {
+  if (period == 0) return 0.0;
+  const size_t cycles = xs.size() / period;
+  if (cycles < 2) return 0.0;
+
+  double sum = 0.0;
+  size_t pairs = 0;
+  for (size_t c = 0; c + 1 < cycles; ++c) {
+    const double corr =
+        window_correlation(xs, c * period, (c + 1) * period, period);
+    sum += corr;
+    ++pairs;
+  }
+  return pairs == 0 ? 0.0 : sum / static_cast<double>(pairs);
+}
+
+PeriodScan scan_periods(const std::vector<double>& xs, size_t min_period,
+                        size_t max_period) {
+  PeriodScan scan;
+  size_t lo = 0;
+  size_t hi = 0;
+  if (!clamp_scan_range(xs.size(), min_period, max_period, lo, hi)) return scan;
+
+  scan.periods.reserve(hi - lo + 1);
+  scan.autocorr.reserve(hi - lo + 1);
+  scan.score.reserve(hi - lo + 1);
+  for (size_t p = lo; p <= hi; ++p) {
+    scan.periods.push_back(p);
+    scan.autocorr.push_back(autocorrelation(xs, p));
+    scan.score.push_back(periodicity_score(xs, p));
+  }
+  return scan;
+}
+
+size_t fundamental_period(const std::vector<double>& xs, size_t period,
+                          double tolerance) {
+  if (period == 0) return 0;
+  const double base = periodicity_score(xs, period);
+  for (size_t d = 1; d < period; ++d) {
+    if (period % d != 0) continue;
+    if (periodicity_score(xs, d) >= base - tolerance) return d;
+  }
+  return period;
+}
+
 PeriodEstimate estimate_period(const std::vector<double>& xs, size_t min_period,
                                size_t max_period) {
   PeriodEstimate est;
-  const size_t n = xs.size();
-  if (n < kMinSamples) return est;
-  if (max_period < min_period) return est;
+  const PeriodScan scan = scan_periods(xs, min_period, max_period);
+  if (scan.periods.empty()) return est;
 
-  const size_t upper = n / 2;
-  if (upper < 1) return est;
-
-  size_t lo = min_period < 1 ? 1 : min_period;
-  size_t hi = clamp_period_range(max_period, 1, upper);
-  lo = clamp_period_range(lo, 1, upper);
-  if (hi < lo) return est;
-
-  double best_score = -std::numeric_limits<double>::infinity();
-  size_t best_period = lo;
-  for (size_t p = lo; p <= hi; ++p) {
-    const double ac = autocorrelation(xs, p);
-    if (ac > best_score) {
-      best_score = ac;
-      best_period = p;
+  double best_ac = -std::numeric_limits<double>::infinity();
+  size_t best_period = scan.periods.front();
+  for (size_t i = 0; i < scan.periods.size(); ++i) {
+    if (scan.autocorr[i] > best_ac) {
+      best_ac = scan.autocorr[i];
+      best_period = scan.periods[i];
     }
   }
+
+  best_period = fundamental_period(xs, best_period, kHarmonicTolerance);
 
   est.period = best_period;
   est.strength = periodicity_score(xs, best_period);

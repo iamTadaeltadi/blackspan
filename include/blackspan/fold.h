@@ -19,6 +19,18 @@ struct PeriodEstimate {
 PeriodEstimate estimate_period(const std::vector<double>& xs, size_t min_period,
                                size_t max_period);
 
+struct PeriodScan {
+  std::vector<size_t> periods;
+  std::vector<double> autocorr;
+  std::vector<double> score;
+};
+
+PeriodScan scan_periods(const std::vector<double>& xs, size_t min_period,
+                        size_t max_period);
+
+size_t fundamental_period(const std::vector<double>& xs, size_t period,
+                          double tolerance);
+
 struct FoldedProfile {
   size_t period = 0;
   std::vector<double> mean;
@@ -29,6 +41,8 @@ struct FoldedProfile {
 FoldedProfile fold_series(const std::vector<double>& xs, size_t period);
 
 double periodicity_score(const std::vector<double>& xs, size_t period);
+
+double cycle_consistency(const std::vector<double>& xs, size_t period);
 
 struct ResidualStats {
   double rms = 0.0;

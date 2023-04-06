@@ -156,6 +156,62 @@ static void test_estimate_period_nonperiodic() {
   CHECK(!bad_range.found && bad_range.period == 0);
 }
 
+static void test_scan_and_harmonics() {
+  const std::vector<double> sine = sine_series(70, 7);
+  PeriodScan scan = scan_periods(sine, 2, 35);
+  CHECK(scan.periods.size() == 34);
+  CHECK(scan.autocorr.size() == scan.periods.size());
+  CHECK(scan.score.size() == scan.periods.size());
+  CHECK(scan.periods.front() == 2 && scan.periods.back() == 35);
+
+  size_t best = 0;
+  double best_ac = -1e18;
+  for (size_t i = 0; i < scan.periods.size(); ++i) {
+    if (scan.autocorr[i] > best_ac) {
+      best_ac = scan.autocorr[i];
+      best = scan.periods[i];
+    }
+    if (scan.periods[i] == 7) CHECK(scan.score[i] > 0.99);
+  }
+  CHECK(best == 7);
+
+  CHECK(scan_periods({}, 1, 5).periods.empty());
+  CHECK(scan_periods({1, 2, 3}, 1, 2).periods.empty());
+
+  const std::vector<double> v = repeat_pattern({1, 2, 3}, 8);
+  CHECK(fundamental_period(v, 6, 0.02) == 3);
+  CHECK(fundamental_period(v, 12, 0.02) == 3);
+  CHECK(fundamental_period(v, 3, 0.02) == 3);
+  CHECK(fundamental_period(v, 0, 0.02) == 0);
+  CHECK(fundamental_period(sine, 7, 0.02) == 7);
+
+  PeriodEstimate he = estimate_period(v, 2, 12);
+  CHECK(he.found && he.period == 3);
+}
+
+static void test_cycle_consistency() {
+  const std::vector<double> consistent = repeat_pattern({2, 5, 9, 4}, 6);
+  CHECK(near_eps(cycle_consistency(consistent, 4), 1.0, 1e-9));
+
+  std::vector<double> flip;
+  for (size_t c = 0; c < 4; ++c) {
+    if (c % 2 == 0) {
+      flip.push_back(1);
+      flip.push_back(2);
+      flip.push_back(3);
+    } else {
+      flip.push_back(3);
+      flip.push_back(2);
+      flip.push_back(1);
+    }
+  }
+  CHECK(near_eps(cycle_consistency(flip, 3), -1.0, 1e-9));
+
+  CHECK(close_to(cycle_consistency(consistent, 0), 0.0));
+  CHECK(close_to(cycle_consistency({1, 2, 3}, 3), 0.0));
+  CHECK(close_to(cycle_consistency({}, 4), 0.0));
+}
+
 static void test_fold_series() {
   const std::vector<double> v = repeat_pattern({1, 2, 3}, 4);
   FoldedProfile p = fold_series(v, 3);
@@ -285,6 +341,8 @@ static void test_adapter() {
 int main() {
   test_estimate_period_clean();
   test_estimate_period_nonperiodic();
+  test_scan_and_harmonics();
+  test_cycle_consistency();
   test_fold_series();
   test_periodicity_score();
   test_fold_residual();
