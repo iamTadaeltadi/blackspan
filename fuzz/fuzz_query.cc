@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "blackspan/movers.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/query.h"
 #include "blackspan/session.h"
@@ -35,6 +36,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     for (const QueryResultRow& row : result.rows) {
       g_sink += row.columns.size();
     }
+  }
+
+  for (const ChannelMovers& m : channel_movers(rec.channels())) {
+    g_sink += m.samples;
+    g_sink += m.movers.size();
+    g_sink += describe_movers(m).size();
   }
   return 0;
 }
