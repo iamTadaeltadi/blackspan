@@ -48,7 +48,6 @@ std::vector<uint8_t> read_file(const char* path, bool& ok) {
   return buf;
 }
 
-// Returns the value following a --flag argument, or nullptr if absent.
 const char* flag_value(int argc, char** argv, const char* name) {
   for (int i = 0; i + 1 < argc; ++i) {
     if (std::strcmp(argv[i], name) == 0) return argv[i + 1];
@@ -191,8 +190,6 @@ int cmd_report(const char* path, int argc, char** argv) {
   return 0;
 }
 
-// Parses a comma-separated list of timeline-kind names into a mask, or returns
-// false naming the first unrecognized token.
 bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
   mask = 0;
   std::string s = spec;
@@ -224,8 +221,6 @@ bool parse_kind_mask(const char* spec, uint32_t& mask, std::string& bad) {
   return true;
 }
 
-// Parses a record type from its lowercase hyphenated name (as record_type_name
-// produces), or returns false.
 bool parse_record_type(const std::string& name, RecordType& out) {
   for (int v = 0x01; v <= 0x0C; ++v) {
     RecordType t = static_cast<RecordType>(v);
@@ -237,7 +232,6 @@ bool parse_record_type(const std::string& name, RecordType& out) {
   return false;
 }
 
-// Writes bytes to --out, or to stdout when no --out was given.
 int write_output(const std::vector<uint8_t>& bytes, int argc, char** argv,
                  size_t frame_count) {
   const char* out_path = flag_value(argc, argv, "--out");
@@ -360,11 +354,11 @@ int cmd_slice(const char* path, int argc, char** argv) {
 }
 
 int cmd_merge(int argc, char** argv) {
-  // blackspan merge <in1> <in2> [<in3> ...] --out <file>
+
   std::vector<std::vector<uint8_t>> inputs;
   for (int i = 2; i < argc; ++i) {
     if (std::strncmp(argv[i], "--", 2) == 0) {
-      ++i;  // skip a flag and its value
+      ++i;
       continue;
     }
     bool ok = false;
@@ -400,8 +394,7 @@ int cmd_diff(const char* left_path, const char* right_path) {
   RecordingDiff diff = RecordingDiff::compare(left, right);
   std::string out = render_diff(diff);
   std::fwrite(out.data(), 1, out.size(), stdout);
-  // Exit 1 when the recordings differ, 0 when identical, so diff composes in a
-  // script the way a byte-diff does.
+
   return diff.identical() ? 0 : 1;
 }
 
@@ -412,8 +405,7 @@ int cmd_validate(const char* path, int argc, char** argv) {
 
   ValidationOptions opts;
   if (flag_value(argc, argv, "--no-notes")) opts.include_notes = false;
-  // The bare presence of --no-notes is what matters, but flag_value needs a
-  // following token; accept the explicit form too.
+
   for (int i = 1; i < argc; ++i) {
     if (std::strcmp(argv[i], "--no-notes") == 0) opts.include_notes = false;
   }
@@ -422,8 +414,6 @@ int cmd_validate(const char* path, int argc, char** argv) {
   std::string out = render_validation(report);
   std::fwrite(out.data(), 1, out.size(), stdout);
 
-  // Exit status reflects the worst severity so validate composes in a script:
-  // 0 = clean or notes only, 1 = warnings, 2 = errors.
   switch (report.summary().worst()) {
     case Severity3::Error: return 2;
     case Severity3::Warning: return 1;
@@ -621,7 +611,7 @@ int cmd_assemble(const char* path, int argc, char** argv) {
 }
 
 int cmd_import(int argc, char** argv) {
-  // blackspan import <name> <file> --workspace <dir>
+
   if (argc < 4) {
     std::fprintf(stderr,
                  "usage: blackspan import <name> <file> --workspace <dir>\n");
@@ -702,7 +692,7 @@ void usage() {
       "  blackspan assemble <script.bsr> [--out <recording.bsp>]\n");
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc < 2) {
