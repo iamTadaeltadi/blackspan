@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "blackspan/digest.h"
+#include "blackspan/driftmodel.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/report.h"
 #include "blackspan/session.h"
@@ -36,6 +37,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     g_sink += d.samples;
     g_sink += d.buckets.size();
     g_sink += describe_digest(d).size();
+  }
+
+  for (const ChannelDrift& d : channel_drift(rec)) {
+    g_sink += d.samples;
+    g_sink += describe_drift(d).size();
   }
 
   if (size >= kExportRequestSize) {
