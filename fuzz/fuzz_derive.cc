@@ -40,7 +40,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   DerivedDefRecord textual;
   textual.derived_id = 0xF000;
   textual.primary_channel = channel_ids.empty() ? 0 : channel_ids.front();
-  textual.name = "fuzz";
+  textual.name = "metric";
   textual.expr = in.text;
   ExprError parse_err = ExprError::None;
   size_t parse_pos = 0;
