@@ -1,36 +1,12 @@
-#include <cerrno>
 #include <cmath>
-#include <cstdlib>
-#include <sstream>
 #include <string>
 #include <vector>
 
 #include "blackspan/detect.h"
+#include "blackspan/textparse.h"
 
 namespace blackspan {
 namespace {
-
-bool parse_uint(const std::string& s, uint64_t& out) {
-  if (s.empty()) return false;
-  errno = 0;
-  char* end = nullptr;
-  unsigned long long v = std::strtoull(s.c_str(), &end, 0);
-  if (end == s.c_str() || *end != '\0') return false;
-  out = v;
-  return true;
-}
-
-bool parse_double_token(const std::string& s, double& out) {
-  if (s.empty()) return false;
-  errno = 0;
-  char* end = nullptr;
-  double v = std::strtod(s.c_str(), &end);
-  if (end == s.c_str()) return false;
-  while (*end == ' ' || *end == '\t') ++end;
-  if (*end != '\0') return false;
-  out = v;
-  return true;
-}
 
 bool parse_detect_kind(const std::string& s, DetectKind& out) {
   if (s == "high") { out = DetectKind::ThresholdHigh; return true; }
@@ -219,27 +195,9 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
   DetectRuleParse result;
   uint32_t next_id = 1;
 
-  size_t line_no = 0;
-  size_t start = 0;
-  while (start <= text.size()) {
-    ++line_no;
-    size_t nl = text.find('\n', start);
-    size_t end = (nl == std::string::npos) ? text.size() : nl;
-    std::string line = text.substr(start, end - start);
-    if (nl == std::string::npos)
-      start = text.size() + 1;
-    else
-      start = nl + 1;
-
-    size_t hash = line.find('#');
-    if (hash != std::string::npos) line = line.substr(0, hash);
-
-    std::vector<std::string> tok;
-    {
-      std::istringstream iss(line);
-      std::string t;
-      while (iss >> t) tok.push_back(t);
-    }
+  for (const SourceLine& sl : source_lines(text)) {
+    const size_t line_no = sl.number;
+    std::vector<std::string> tok = tokenize(sl.text);
     if (tok.empty()) continue;
 
     auto fail = [&](DetectParseError e) {
@@ -252,12 +210,12 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
     }
 
     uint64_t channel_id = 0;
-    if (!parse_uint(tok[0], channel_id) || channel_id > 0xffff) {
+    if (!parse_uint_token(tok[0], channel_id) || channel_id > 0xffff) {
       fail(DetectParseError::BadNumber);
       continue;
     }
     uint64_t field_index = 0;
-    if (!parse_uint(tok[1], field_index)) {
+    if (!parse_uint_token(tok[1], field_index)) {
       fail(DetectParseError::BadField);
       continue;
     }
@@ -293,7 +251,7 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
       case DetectKind::StuckAt: {
         if (tok.size() < 5) { fail(DetectParseError::MissingField); bad = true; break; }
         uint64_t run_len = 0;
-        if (!parse_double_token(tok[3], rule.a) || !parse_uint(tok[4], run_len)) {
+        if (!parse_double_token(tok[3], rule.a) || !parse_uint_token(tok[4], run_len)) {
           fail(DetectParseError::BadNumber);
           bad = true;
           break;
@@ -304,7 +262,7 @@ DetectRuleParse parse_detect_rules(const std::string& text) {
       case DetectKind::Spike: {
         if (tok.size() < 5) { fail(DetectParseError::MissingField); bad = true; break; }
         uint64_t window = 0;
-        if (!parse_uint(tok[3], window) || !parse_double_token(tok[4], rule.a)) {
+        if (!parse_uint_token(tok[3], window) || !parse_double_token(tok[4], rule.a)) {
           fail(DetectParseError::BadNumber);
           bad = true;
           break;

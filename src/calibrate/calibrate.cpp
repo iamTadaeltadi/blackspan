@@ -1,8 +1,8 @@
 #include <cstdio>
-#include <cstdlib>
 #include <sstream>
 
 #include "blackspan/calibrate.h"
+#include "blackspan/textparse.h"
 
 namespace blackspan {
 namespace {
@@ -10,28 +10,6 @@ namespace {
 uint64_t make_key(uint16_t channel_id, size_t field_index) {
   return (static_cast<uint64_t>(channel_id) << 32) |
          (static_cast<uint32_t>(field_index));
-}
-
-bool parse_index(const std::string& s, uint64_t& out) {
-  if (s.empty()) return false;
-  errno = 0;
-  char* end = nullptr;
-  unsigned long long v = std::strtoull(s.c_str(), &end, 0);
-  if (end == s.c_str() || *end != '\0') return false;
-  out = v;
-  return true;
-}
-
-bool parse_double_token(const std::string& s, double& out) {
-  if (s.empty()) return false;
-  errno = 0;
-  char* end = nullptr;
-  double v = std::strtod(s.c_str(), &end);
-  if (end == s.c_str()) return false;
-  while (*end == ' ' || *end == '\t') ++end;
-  if (*end != '\0') return false;
-  out = v;
-  return true;
 }
 
 }
@@ -106,22 +84,9 @@ std::string CalibrationTable::to_text() const {
 CalibrationParse parse_calibration(const std::string& text) {
   CalibrationParse result;
 
-  size_t line_no = 0;
-  size_t start = 0;
-  while (start <= text.size()) {
-    ++line_no;
-    size_t nl = text.find('\n', start);
-    size_t end = (nl == std::string::npos) ? text.size() : nl;
-    std::string line = text.substr(start, end - start);
-    if (nl == std::string::npos)
-      start = text.size() + 1;
-    else
-      start = nl + 1;
-
-    size_t hash = line.find('#');
-    if (hash != std::string::npos) line = line.substr(0, hash);
-
-    std::istringstream iss(line);
+  for (const SourceLine& sl : source_lines(text)) {
+    const size_t line_no = sl.number;
+    std::istringstream iss(sl.text);
     std::string first;
     if (!(iss >> first)) continue;
 
@@ -144,7 +109,7 @@ CalibrationParse parse_calibration(const std::string& text) {
       continue;
     }
     uint64_t channel_id = 0;
-    if (!parse_index(channel_tok, channel_id) || channel_id > 0xffff) {
+    if (!parse_uint_token(channel_tok, channel_id) || channel_id > 0xffff) {
       fail(CalibrationError::BadNumber, "channel=" + channel_tok);
       continue;
     }
@@ -164,7 +129,7 @@ CalibrationParse parse_calibration(const std::string& text) {
           break;
         }
         uint64_t idx = 0;
-        if (!parse_index(v, idx)) {
+        if (!parse_uint_token(v, idx)) {
           fail(CalibrationError::BadFieldIndex, v);
           bad = true;
           break;
