@@ -7,6 +7,7 @@
 #include "blackspan/pipeline.h"
 #include "blackspan/rank.h"
 #include "blackspan/session.h"
+#include "blackspan/stats.h"
 
 using namespace blackspan;
 
@@ -41,6 +42,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     g_sink += r.samples;
     g_sink += r.ranks.size();
     g_sink += describe_ranks(r).size();
+    g_sink += rank_series(r).size();
   }
 
   std::string out;

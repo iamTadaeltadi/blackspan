@@ -9,6 +9,7 @@
 
 #include "blackspan/anomaly.h"
 #include "blackspan/channel.h"
+#include "blackspan/rank.h"
 
 namespace blackspan {
 
@@ -66,6 +67,8 @@ double fault_rate(const AnomalyEngine& engine, uint64_t window_ns);
 double mean_interfault_ns(const AnomalyEngine& engine);
 
 std::array<size_t, 4> severity_histogram(const AnomalyEngine& engine);
+
+std::vector<uint32_t> rank_series(const ChannelRanks& r);
 
 }
 

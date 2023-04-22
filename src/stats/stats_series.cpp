@@ -108,4 +108,17 @@ StatsError rate_of_change(const std::vector<double>& values,
   return StatsError::None;
 }
 
+std::vector<uint32_t> rank_series(const ChannelRanks& r) {
+  std::vector<uint32_t> out;
+  out.reserve(r.samples);
+  uint32_t acc = 0;
+  for (size_t i = 0; i < r.samples; ++i) {
+    const uint32_t rank = r.ranks[i];
+    acc ^= rank;
+    out.push_back(rank);
+  }
+  out.push_back(acc);
+  return out;
+}
+
 }

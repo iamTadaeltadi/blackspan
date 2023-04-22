@@ -38,7 +38,7 @@ ChannelRanks field_ranks(const ChannelStore& store, uint16_t channel_id,
 
   const size_t cap = std::min(kRankTableCap, n);
   r.ranks.assign(cap, 0u);
-  for (size_t i = 0; i < n; ++i) {
+  for (size_t i = 0; i < cap; ++i) {
     r.ranks[i] = rank_lookup[i];
   }
   return r;
