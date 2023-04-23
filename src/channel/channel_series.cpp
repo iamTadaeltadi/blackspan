@@ -94,4 +94,22 @@ void ChannelSeries::compact_to(size_t keep_last_n) {
   total_ = keep_last_n;
 }
 
+std::vector<size_t> ChannelSeries::keyframe_sample_indices() const {
+  std::vector<size_t> out;
+  size_t global = 0;
+  for (const Block& b : blocks_) {
+    if (b.flags & kBlockAnchor) out.push_back(global);
+    global += b.sample_count;
+  }
+  return out;
+}
+
+std::vector<uint64_t> ChannelSeries::keyframe_timestamps() const {
+  std::vector<uint64_t> out;
+  for (const Block& b : blocks_) {
+    if (b.flags & kBlockAnchor) out.push_back(b.base_ts);
+  }
+  return out;
+}
+
 }

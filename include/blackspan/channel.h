@@ -60,6 +60,9 @@ class ChannelSeries {
   uint64_t block_base_ts(size_t block_index) const;
   uint16_t block_flags(size_t block_index) const;
 
+  std::vector<size_t> keyframe_sample_indices() const;
+  std::vector<uint64_t> keyframe_timestamps() const;
+
   const uint8_t* sample_bytes(size_t index, size_t* len) const;
 
   std::optional<SampleView> view(size_t index) const;

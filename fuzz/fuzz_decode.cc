@@ -35,6 +35,8 @@ void walk_channels(const ChannelStore& channels) {
       g_sink += series->block_sample_count(b);
       g_sink += series->block_base_ts(b);
     }
+    g_sink += series->keyframe_sample_indices().size();
+    g_sink += series->keyframe_timestamps().size();
     for (size_t i = 0; i < series->total_samples(); ++i) {
       std::optional<SampleView> v = series->view(i);
       if (!v.has_value()) continue;

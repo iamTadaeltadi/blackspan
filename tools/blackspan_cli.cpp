@@ -130,9 +130,10 @@ int cmd_channels(const char* path) {
   for (uint16_t id : rec.channels().channels()) {
     const ChannelSeries* s = rec.channels().series(id);
     if (!s) continue;
-    std::printf("channel %u \"%s\" v%u samples=%zu stride=%zu blocks=%zu\n", id,
-                s->schema().name.c_str(), s->schema_version(),
-                s->total_samples(), s->stride(), s->block_count());
+    std::printf("channel %u \"%s\" v%u samples=%zu stride=%zu blocks=%zu keyframes=%zu\n",
+                id, s->schema().name.c_str(), s->schema_version(),
+                s->total_samples(), s->stride(), s->block_count(),
+                s->keyframe_sample_indices().size());
   }
   std::printf("%zu channels, %zu total samples\n",
               rec.channels().channels().size(),
