@@ -6,8 +6,10 @@
 #include "blackspan/digest.h"
 #include "blackspan/driftmodel.h"
 #include "blackspan/pipeline.h"
+#include "blackspan/profile.h"
 #include "blackspan/report.h"
 #include "blackspan/session.h"
+#include "blackspan/stats.h"
 
 using namespace blackspan;
 
@@ -42,6 +44,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   for (const ChannelDrift& d : channel_drift(rec)) {
     g_sink += d.samples;
     g_sink += describe_drift(d).size();
+  }
+
+  for (const ActivityProfile& p : channel_activity(rec.channels())) {
+    g_sink += p.samples;
+    g_sink += describe_activity(p).size();
+    g_sink += static_cast<size_t>(activity_deviation(p));
   }
 
   if (size >= kExportRequestSize) {

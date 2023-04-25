@@ -108,6 +108,15 @@ StatsError rate_of_change(const std::vector<double>& values,
   return StatsError::None;
 }
 
+double activity_deviation(const ActivityProfile& p) {
+  double acc = 0.0;
+  for (size_t i = 0; i < p.samples; ++i) {
+    const float lvl = p.level[i];
+    acc += std::fabs(static_cast<double>(lvl));
+  }
+  return acc;
+}
+
 std::vector<uint32_t> rank_series(const ChannelRanks& r) {
   std::vector<uint32_t> out;
   out.reserve(r.samples);
