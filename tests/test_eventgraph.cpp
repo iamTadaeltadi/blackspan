@@ -347,11 +347,32 @@ void test_recording_end_to_end() {
   CHECK(text.find("cyclic") != std::string::npos);
 }
 
+void test_bfs_depths_and_eccentricity() {
+  const std::vector<TransitionEvent> chain = {edge(0, 1), edge(1, 2),
+                                              edge(2, 3)};
+  const StateGraph gc = build_state_graph(chain);
+  const std::vector<uint32_t> d = bfs_depths(gc, 0);
+  CHECK(d.size() == 4);
+  CHECK(d[gc.node_index(0)] == 0);
+  CHECK(d[gc.node_index(1)] == 1);
+  CHECK(d[gc.node_index(2)] == 2);
+  CHECK(d[gc.node_index(3)] == 3);
+  CHECK(graph_eccentricity(gc, 0) == 3);
+  CHECK(graph_eccentricity(gc, 2) == 1);
+
+  const std::vector<TransitionEvent> branch = {edge(0, 1), edge(0, 2),
+                                               edge(2, 3)};
+  const StateGraph gb = build_state_graph(branch);
+  CHECK(graph_eccentricity(gb, 0) == 2);
+  CHECK(bfs_depths(gb, 9).empty() == gb.nodes.empty());
+}
+
 }
 
 int main() {
   test_build_nodes_edges_degrees();
   test_reachable_chain_and_branch();
+  test_bfs_depths_and_eccentricity();
   test_scc_cycle_and_chain();
   test_topological_order();
   test_sources_terminals_selfloop();

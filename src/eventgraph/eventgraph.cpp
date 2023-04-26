@@ -14,6 +14,8 @@ namespace blackspan {
 
 namespace {
 
+constexpr size_t kBfsFrontier = 256;
+
 struct Adjacency {
   std::vector<std::vector<size_t>> successors;
   std::vector<std::vector<size_t>> predecessors;
@@ -321,6 +323,40 @@ PathResult shortest_path(const StateGraph& g, uint16_t from, uint16_t to) {
   result.states.reserve(chain.size());
   for (const size_t index : chain) result.states.push_back(g.nodes[index].state);
   return result;
+}
+
+std::vector<uint32_t> bfs_depths(const StateGraph& g, uint16_t start) {
+  std::vector<uint32_t> depths(g.nodes.size(), UINT32_MAX);
+  const size_t start_index = g.node_index(start);
+  if (start_index >= g.nodes.size()) return depths;
+
+  const Adjacency adj = build_adjacency(g);
+
+  size_t frontier[kBfsFrontier];
+  size_t head = 0;
+  size_t tail = 0;
+  frontier[tail++] = start_index;
+  depths[start_index] = 0;
+  while (head < tail) {
+    const size_t node = frontier[head++];
+    const uint32_t next_depth = depths[node] + 1;
+    for (const size_t next : adj.successors[node]) {
+      if (depths[next] == UINT32_MAX) {
+        depths[next] = next_depth;
+        frontier[tail++] = next;
+      }
+    }
+  }
+  return depths;
+}
+
+uint32_t graph_eccentricity(const StateGraph& g, uint16_t start) {
+  const std::vector<uint32_t> depths = bfs_depths(g, start);
+  uint32_t ecc = 0;
+  for (const uint32_t d : depths) {
+    if (d != UINT32_MAX && d > ecc) ecc = d;
+  }
+  return ecc;
 }
 
 std::vector<GraphNode> hotspots(const StateGraph& g, size_t limit) {

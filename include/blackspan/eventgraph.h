@@ -60,6 +60,10 @@ struct PathResult {
 
 PathResult shortest_path(const StateGraph& g, uint16_t from, uint16_t to);
 
+std::vector<uint32_t> bfs_depths(const StateGraph& g, uint16_t start);
+
+uint32_t graph_eccentricity(const StateGraph& g, uint16_t start);
+
 std::vector<GraphNode> hotspots(const StateGraph& g, size_t limit);
 
 std::vector<uint16_t> unreachable_states(const StateGraph& g, uint16_t start);

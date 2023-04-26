@@ -5,6 +5,7 @@
 
 #include "blackspan/digest.h"
 #include "blackspan/driftmodel.h"
+#include "blackspan/eventgraph.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/profile.h"
 #include "blackspan/report.h"
@@ -44,6 +45,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   for (const ChannelDrift& d : channel_drift(rec)) {
     g_sink += d.samples;
     g_sink += describe_drift(d).size();
+  }
+
+  StateGraph sg = recording_state_graph(rec);
+  if (!sg.nodes.empty()) {
+    g_sink += graph_eccentricity(sg, sg.nodes.front().state);
   }
 
   for (const ActivityProfile& p : channel_activity(rec.channels())) {
