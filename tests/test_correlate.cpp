@@ -421,6 +421,40 @@ static void test_coincidences() {
   CHECK(detection_fault_coincidences(none, 100).empty());
 }
 
+static void test_merge_correlations_basic() {
+  std::vector<CorrelatedEvent> events = {
+      ev(EventClass::Detection, 1, 1000, 1),
+      ev(EventClass::Fault, 1, 1050, 2),
+      ev(EventClass::Detection, 1, 5000, 3),
+      ev(EventClass::Transition, 1, 5060, 0x00020003u),
+  };
+  std::vector<Correlation> cs = correlate_events(events, cfg_of(100, 2));
+  CHECK(cs.size() == 2);
+
+  std::vector<Correlation> keep = merge_correlations(cs, 100);
+  CHECK(keep.size() == 2);
+
+  std::vector<Correlation> merged = merge_correlations(cs, 1000000);
+  CHECK(merged.size() == 1);
+  if (merged.size() == 1) {
+    CHECK(merged[0].members.size() == 4);
+    CHECK(merged[0].detections == 2);
+    CHECK(merged[0].faults == 1);
+    CHECK(merged[0].transitions == 1);
+    CHECK(merged[0].anchor_ts == 1000);
+  }
+
+  std::vector<CorrelatedEvent> two_dev = {
+      ev(EventClass::Detection, 1, 1000, 1),
+      ev(EventClass::Fault, 1, 1050, 2),
+      ev(EventClass::Detection, 2, 1100, 3),
+      ev(EventClass::Fault, 2, 1150, 4),
+  };
+  std::vector<Correlation> cs2 = correlate_events(two_dev, cfg_of(1000000, 2));
+  CHECK(cs2.size() == 2);
+  CHECK(merge_correlations(cs2, 1000000000ull).size() == 2);
+}
+
 int main() {
   test_class_names();
   test_empty_input();
@@ -435,6 +469,7 @@ int main() {
   test_recording_empty();
   test_analysis_helpers();
   test_coincidences();
+  test_merge_correlations_basic();
 
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

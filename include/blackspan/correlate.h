@@ -64,6 +64,9 @@ std::vector<Correlation> correlations_with_class(
 
 std::string render_correlations(const std::vector<Correlation>& cs);
 
+std::vector<Correlation> merge_correlations(const std::vector<Correlation>& cs,
+                                            uint64_t span_ns);
+
 struct CorrelationSummary {
   size_t total = 0;
   size_t detections = 0;

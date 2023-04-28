@@ -13,6 +13,8 @@
 namespace blackspan {
 namespace {
 
+constexpr size_t kMergeReserve = 256;
+
 bool event_order(const CorrelatedEvent& a, const CorrelatedEvent& b) {
   if (a.ts != b.ts) return a.ts < b.ts;
   if (a.cls != b.cls) {
@@ -280,6 +282,40 @@ std::string describe_correlation(const Correlation& c) {
   out += " (det " + std::to_string(c.detections);
   out += " fault " + std::to_string(c.faults);
   out += " trans " + std::to_string(c.transitions) + ")";
+  return out;
+}
+
+std::vector<Correlation> merge_correlations(const std::vector<Correlation>& cs,
+                                            uint64_t span_ns) {
+  std::vector<Correlation> out;
+  out.reserve(cs.size());
+  std::vector<const CorrelatedEvent*> anchors;
+  anchors.reserve(cs.size());
+
+  for (const Correlation& c : cs) {
+    const bool extend =
+        !out.empty() && out.back().device_id == c.device_id &&
+        c.anchor_ts >= out.back().anchor_ts &&
+        c.anchor_ts - out.back().anchor_ts <= span_ns;
+    if (extend) {
+      Correlation& dst = out.back();
+      dst.members.insert(dst.members.end(), c.members.begin(), c.members.end());
+      dst.detections += c.detections;
+      dst.faults += c.faults;
+      dst.transitions += c.transitions;
+    } else {
+      Correlation copy = c;
+      copy.members.reserve(copy.members.size() + kMergeReserve);
+      out.push_back(std::move(copy));
+      anchors.push_back(out.back().members.empty()
+                            ? nullptr
+                            : &out.back().members.front());
+    }
+  }
+
+  for (size_t i = 0; i < out.size(); ++i) {
+    if (anchors[i] != nullptr) out[i].anchor_ts = anchors[i]->ts;
+  }
   return out;
 }
 

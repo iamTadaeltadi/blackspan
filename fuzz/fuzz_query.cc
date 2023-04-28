@@ -1,6 +1,8 @@
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
+#include "blackspan/correlate.h"
 #include "blackspan/movers.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/query.h"
@@ -42,6 +44,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     g_sink += m.samples;
     g_sink += m.movers.size();
     g_sink += describe_movers(m).size();
+  }
+
+  std::vector<DetectRule> rules;
+  CorrelationConfig ccfg;
+  std::vector<Correlation> cs = correlate_recording(rec, rules, ccfg);
+  std::vector<Correlation> merged =
+      merge_correlations(cs, ccfg.window_ns * 1024);
+  for (const Correlation& c : merged) {
+    g_sink += c.anchor_ts;
+    g_sink += c.members.size();
   }
   return 0;
 }
