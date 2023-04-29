@@ -1,14 +1,9 @@
 #include "blackspan/profile.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
 namespace blackspan {
-
-namespace {
-constexpr size_t kActivityLevels = 512;
-}
 
 ActivityProfile field_activity(const ChannelStore& store, uint16_t channel_id,
                                size_t field_index) {
@@ -31,9 +26,8 @@ ActivityProfile field_activity(const ChannelStore& store, uint16_t channel_id,
   for (double v : col) sum += v;
   p.mean = sum / static_cast<double>(n);
 
-  const size_t width = std::min(kActivityLevels, n);
-  p.level.assign(width, 0.0f);
-  for (size_t i = 0; i < width; ++i) {
+  p.level.assign(n, 0.0f);
+  for (size_t i = 0; i < n; ++i) {
     p.level[i] = static_cast<float>(col[i] - p.mean);
   }
   return p;
