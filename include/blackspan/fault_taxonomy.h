@@ -24,6 +24,16 @@ struct FaultClass {
 
 std::vector<FaultClass> classify_faults(const std::vector<FaultEvent>& faults);
 
+struct CodeTally {
+  uint16_t fault_code = 0;
+  size_t count = 0;
+  uint64_t first_ts = 0;
+  uint64_t last_ts = 0;
+};
+
+std::vector<CodeTally> tally_by_code(const std::vector<FaultEvent>& faults,
+                                     CodeTally& total);
+
 struct SubsystemLoad {
   uint8_t subsystem_id = 0;
   size_t total = 0;

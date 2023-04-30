@@ -296,8 +296,32 @@ static void test_taxonomy_of_recording() {
   CHECK(s.top_code == 0x10);
 }
 
+static void test_tally_by_code() {
+  std::vector<FaultEvent> faults = {
+      fe(0x10, Severity::Warning, 1, 7, 0, 1000),
+      fe(0x20, Severity::Error, 1, 7, 1, 1100),
+      fe(0x10, Severity::Error, 2, 8, 2, 1200),
+      fe(0x30, Severity::Critical, 3, 7, 3, 1300),
+  };
+  CodeTally total;
+  std::vector<CodeTally> per = tally_by_code(faults, total);
+  CHECK(per.size() == 3);
+  CHECK(total.count == 4);
+  CHECK(total.first_ts == 1000);
+  CHECK(total.last_ts == 1300);
+  if (!per.empty()) {
+    CHECK(per.front().fault_code == 0x10);
+    CHECK(per.front().count == 2);
+  }
+
+  CodeTally empty_total;
+  CHECK(tally_by_code({}, empty_total).empty());
+  CHECK(empty_total.count == 0);
+}
+
 int main() {
   test_classify_groups();
+  test_tally_by_code();
   test_subsystem_load_histogram();
   test_recurring_intervals();
   test_severity_escalations();

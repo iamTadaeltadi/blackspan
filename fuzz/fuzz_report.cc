@@ -6,6 +6,7 @@
 #include "blackspan/digest.h"
 #include "blackspan/driftmodel.h"
 #include "blackspan/eventgraph.h"
+#include "blackspan/fault_taxonomy.h"
 #include "blackspan/pipeline.h"
 #include "blackspan/profile.h"
 #include "blackspan/report.h"
@@ -51,6 +52,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   if (!sg.nodes.empty()) {
     g_sink += graph_eccentricity(sg, sg.nodes.front().state);
   }
+
+  CodeTally fault_total;
+  for (const CodeTally& t : tally_by_code(rec.anomalies().faults(), fault_total)) {
+    g_sink += t.count;
+  }
+  g_sink += fault_total.count;
 
   for (const ActivityProfile& p : channel_activity(rec.channels())) {
     g_sink += p.samples;

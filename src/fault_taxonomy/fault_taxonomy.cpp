@@ -10,6 +10,8 @@
 namespace blackspan {
 namespace {
 
+constexpr size_t kRecurThreshold = 100;
+
 size_t severity_index(Severity s) {
   const size_t v = static_cast<size_t>(s);
   return v < 4 ? v : 3;
@@ -88,6 +90,41 @@ std::vector<FaultClass> classify_faults(const std::vector<FaultEvent>& faults) {
                      }
                      return a.subsystem_id < b.subsystem_id;
                    });
+  return out;
+}
+
+std::vector<CodeTally> tally_by_code(const std::vector<FaultEvent>& faults,
+                                     CodeTally& total) {
+  std::map<uint16_t, CodeTally> by_code;
+  for (const FaultEvent& f : faults) {
+    CodeTally& slot = by_code[f.fault_code];
+    if (slot.count == 0) {
+      slot.fault_code = f.fault_code;
+      slot.first_ts = f.monotonic_ts;
+    }
+    slot.count += 1;
+    slot.last_ts = f.monotonic_ts;
+  }
+
+  std::vector<CodeTally> out;
+  out.reserve(by_code.size());
+  for (const auto& kv : by_code) out.push_back(kv.second);
+
+  total = CodeTally{};
+  for (const CodeTally& t : out) {
+    total.count += t.count;
+    if (total.first_ts == 0 || t.first_ts < total.first_ts) {
+      total.first_ts = t.first_ts;
+    }
+    if (t.last_ts > total.last_ts) total.last_ts = t.last_ts;
+
+    if (t.count >= kRecurThreshold) {
+      CodeTally burst = t;
+      burst.fault_code = static_cast<uint16_t>(t.fault_code | 0x8000u);
+      burst.count = t.count / kRecurThreshold;
+      out.push_back(burst);
+    }
+  }
   return out;
 }
 
