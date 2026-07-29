@@ -33,10 +33,14 @@ ChannelDigest field_digest(const ChannelStore& store, uint16_t channel_id,
   const size_t span = static_cast<size_t>(std::floor(hi - lo));
   d.bucket_count = static_cast<uint16_t>(span + 1);
   d.buckets.assign(d.bucket_count, 0u);
+  d.cum.assign(d.bucket_count, 0u);
 
+  uint32_t running = 0;
   for (double v : col) {
     const size_t bin = static_cast<size_t>(std::floor(v - lo));
     d.buckets[bin] += 1u;
+    running += 1u;
+    d.cum[bin] = running;
   }
   return d;
 }
