@@ -1,21 +1,6 @@
-# fleet.bsr - three units downloaded into one file, interleaved.
-#
-# Field recordings are often concatenated per service visit, so a single file
-# carries several devices whose frames are interleaved and whose sessions do
-# not line up. This example also covers a mid-recording schema revision, a
-# recorder reconnect, and a session that was never closed because the unit was
-# powered off before the download finished.
-#
-# Channel schemas and column stores are keyed by channel id across the whole
-# recording, not per device: units that record the same channel must agree on
-# its layout, and a series stays pinned to the version it was opened with. The
-# revision below therefore lands on a channel that is not sampled again.
-#
-# Assemble with:  blackspan assemble examples/fleet.bsr --out examples/fleet.bsp
 
 tick 500
 
-# ---- unit A opens ---------------------------------------------------------
 device 0x00A10001
 session 1
 ts 500000
@@ -31,16 +16,11 @@ samples channel=2 delta=0
   row 48.4 0
 end
 
-# ---- unit B opens on a newer firmware -------------------------------------
 device 0x00A10002
 session 1
 ts 500200
 session-begin class=17 fw=2.5.0 epoch=4 label="unit-b"
-# Unit B records the same motor layout, so channel 1 keeps one version.
 schema id=1 name=motor fields=rpm:u16,current_ma:i16,temp_c:i8
-# Its newer firmware adds a board temperature to the bus channel. That is a
-# second version of channel 2's layout; the samples already recorded against
-# version 1 stay resolvable.
 schema id=2 name=bus fields=volts:f32,fault_bits:u32,board_c:i8
 state from=0 to=1 cause=1
 samples channel=1 delta=0
@@ -48,14 +28,12 @@ samples channel=1 delta=0
   row 1020 505 31
 end
 
-# ---- unit C opens and is interrupted --------------------------------------
 device 0x00A10003
 session 1
 ts 500400
 session-begin class=19 fw=1.9.2 epoch=2 label="unit-c probe"
 marker kind=1 text="probe attached"
 
-# ---- unit A continues, checkpoints, and reconnects ------------------------
 device 0x00A10001
 session 7
 ts 510000
@@ -63,7 +41,6 @@ checkpoint id=1 bytes=4096
 samples channel=1 delta=0
   row 980 445 35
 end
-# The recorder lost the link for 1.4 seconds and resumed on a new sequence.
 reconnect gap=1400 prev=8
 samples channel=1 delta=0
   row 1010 460 36
@@ -71,7 +48,6 @@ end
 state from=1 to=0 cause=4
 session-end reason=0
 
-# ---- unit B logs a fault and closes ---------------------------------------
 device 0x00A10002
 session 6
 ts 520000
@@ -80,7 +56,6 @@ fault code=0x0210 severity=error subsystem=1 detail="phase imbalance"
 state from=1 to=3 cause=9
 session-end reason=2
 
-# ---- unit C is never closed: the download ended mid-session ---------------
 device 0x00A10003
 session 3
 ts 530000

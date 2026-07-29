@@ -1,13 +1,4 @@
 #!/bin/sh
-# Regenerates every example recording from its script and compares the decoder's
-# output against the checked-in expected files.
-#
-#   examples/check.sh [path-to-blackspan-binary]
-#
-# Run from the repository root. Exits non-zero on the first difference, so it
-# doubles as the CI gate that keeps the wire format, the decoder, and the
-# documented output in step. Pass --update to refresh the expected files after
-# an intentional change.
 
 set -eu
 
@@ -36,7 +27,6 @@ for name in $EXAMPLES; do
   script="examples/$name.bsr"
   recording="examples/$name.bsp"
 
-  # 1. The script must still assemble to exactly the committed recording.
   "$BIN" assemble "$script" --out "$WORK/$name.bsp" >/dev/null
   if [ "$UPDATE" = "1" ]; then
     cp "$WORK/$name.bsp" "$recording"
@@ -46,7 +36,6 @@ for name in $EXAMPLES; do
     continue
   fi
 
-  # 2. The decoder's output must still match the expected transcript.
   out="$WORK/$name.cli.txt"
   {
     echo "\$ blackspan frames $name.bsp"
@@ -74,7 +63,7 @@ for name in $EXAMPLES; do
     "$BIN" report "$recording" --format dot
     echo
     echo "\$ blackspan validate $name.bsp"
-    "$BIN" validate "$recording" || true   # non-zero exit signals findings
+    "$BIN" validate "$recording" || true
     echo
     echo "\$ blackspan timeline $name.bsp"
     "$BIN" timeline "$recording"
