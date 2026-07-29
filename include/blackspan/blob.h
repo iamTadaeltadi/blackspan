@@ -19,7 +19,7 @@ class OwnedBuffer {
   OwnedBuffer& operator=(OwnedBuffer&& other) noexcept;
 
   OwnedBuffer(const OwnedBuffer& other);
-  OwnedBuffer& operator=(const OwnedBuffer&) = delete;
+  OwnedBuffer& operator=(const OwnedBuffer& other);
 
   const uint8_t* data() const { return data_; }
   size_t size() const { return size_; }
@@ -40,6 +40,7 @@ class BlobIndex {
  private:
   std::vector<OwnedBuffer> store_;
   std::vector<OwnedBuffer> hot_;
+  OwnedBuffer hottest_;
 };
 
 uint64_t fault_detail_footprint(const std::vector<FaultEvent>& faults);

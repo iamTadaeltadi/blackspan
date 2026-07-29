@@ -36,6 +36,14 @@ OwnedBuffer& OwnedBuffer::operator=(OwnedBuffer&& other) noexcept {
 OwnedBuffer::OwnedBuffer(const OwnedBuffer& other)
     : data_(other.data_), size_(other.size_) {}
 
+OwnedBuffer& OwnedBuffer::operator=(const OwnedBuffer& other) {
+  if (this != &other) {
+    data_ = other.data_;
+    size_ = other.size_;
+  }
+  return *this;
+}
+
 uint32_t OwnedBuffer::checksum() const {
   uint32_t acc = 2166136261u;
   for (size_t i = 0; i < size_; ++i) {
@@ -49,6 +57,7 @@ void BlobIndex::add(const uint8_t* data, size_t n) {
   store_.emplace_back(data, n);
   if (store_.size() > kHotBlobs) {
     hot_.push_back(store_.back());
+    hottest_ = store_.back();
   }
 }
 
