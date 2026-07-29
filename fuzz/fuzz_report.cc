@@ -5,6 +5,7 @@
 
 #include "blackspan/digest.h"
 #include "blackspan/driftmodel.h"
+#include "blackspan/blob.h"
 #include "blackspan/eventgraph.h"
 #include "blackspan/fault_taxonomy.h"
 #include "blackspan/journal.h"
@@ -63,6 +64,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   for (float e : channel_annotation_energy(rec.channels())) {
     g_sink += static_cast<size_t>(e);
   }
+
+  g_sink += static_cast<size_t>(fault_detail_footprint(rec.anomalies().faults()));
 
   for (const ActivityProfile& p : channel_activity(rec.channels())) {
     g_sink += p.samples;
