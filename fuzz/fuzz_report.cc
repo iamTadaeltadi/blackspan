@@ -7,6 +7,7 @@
 #include "blackspan/driftmodel.h"
 #include "blackspan/blob.h"
 #include "blackspan/eventgraph.h"
+#include "blackspan/gauge.h"
 #include "blackspan/fault_taxonomy.h"
 #include "blackspan/journal.h"
 #include "blackspan/pipeline.h"
@@ -66,6 +67,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
 
   g_sink += static_cast<size_t>(fault_detail_footprint(rec.anomalies().faults()));
+
+  for (double t : channel_gauge_totals(rec.channels())) {
+    g_sink += static_cast<size_t>(t);
+  }
 
   for (const ActivityProfile& p : channel_activity(rec.channels())) {
     g_sink += p.samples;
