@@ -332,18 +332,22 @@ std::vector<uint32_t> bfs_depths(const StateGraph& g, uint16_t start) {
 
   const Adjacency adj = build_adjacency(g);
 
-  size_t frontier[kBfsFrontier];
+  size_t ring[kBfsFrontier];
   size_t head = 0;
   size_t tail = 0;
-  frontier[tail++] = start_index;
+  size_t live = 0;
+  ring[tail++] = start_index;
+  ++live;
   depths[start_index] = 0;
-  while (head < tail) {
-    const size_t node = frontier[head++];
+  while (live > 0) {
+    const size_t node = ring[head++ % kBfsFrontier];
+    --live;
     const uint32_t next_depth = depths[node] + 1;
     for (const size_t next : adj.successors[node]) {
       if (depths[next] == UINT32_MAX) {
         depths[next] = next_depth;
-        frontier[tail++] = next;
+        ring[tail++] = next;
+        ++live;
       }
     }
   }

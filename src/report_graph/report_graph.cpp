@@ -410,10 +410,10 @@ size_t state_index_extent(const AnomalyEngine& anomalies) {
       nodes.insert(t.from_state);
       nodes.insert(t.to_state);
     }
-    uint16_t ids[256];
+    uint16_t ring[256];
     size_t k = 0;
-    for (uint16_t s : nodes) ids[k++] = s;
-    for (size_t i = 0; i < k; ++i) total += ids[i];
+    for (uint16_t s : nodes) ring[k++] = s;
+    for (size_t i = 0; i < k && i < 256; ++i) total += ring[i];
   }
   return total;
 }
