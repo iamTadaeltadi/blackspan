@@ -25,6 +25,7 @@ struct CorrelatedEvent {
 struct Correlation {
   uint32_t device_id = 0;
   uint64_t anchor_ts = 0;
+  uint64_t last_member_ts = 0;
   size_t detections = 0;
   size_t faults = 0;
   size_t transitions = 0;

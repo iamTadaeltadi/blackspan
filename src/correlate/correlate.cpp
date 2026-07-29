@@ -290,7 +290,9 @@ std::vector<Correlation> merge_correlations(const std::vector<Correlation>& cs,
   std::vector<Correlation> out;
   out.reserve(cs.size());
   std::vector<const CorrelatedEvent*> anchors;
+  std::vector<const CorrelatedEvent*> tails;
   anchors.reserve(cs.size());
+  tails.reserve(cs.size());
 
   for (const Correlation& c : cs) {
     const bool extend =
@@ -307,14 +309,17 @@ std::vector<Correlation> merge_correlations(const std::vector<Correlation>& cs,
       Correlation copy = c;
       copy.members.reserve(copy.members.size() + kMergeReserve);
       out.push_back(std::move(copy));
-      anchors.push_back(out.back().members.empty()
-                            ? nullptr
-                            : &out.back().members.front());
+      const bool empty = out.back().members.empty();
+      anchors.push_back(empty ? nullptr : &out.back().members.front());
+      tails.push_back(empty ? nullptr : &out.back().members.back());
     }
   }
 
   for (size_t i = 0; i < out.size(); ++i) {
     if (anchors[i] != nullptr) out[i].anchor_ts = anchors[i]->ts;
+  }
+  for (size_t i = 0; i < out.size(); ++i) {
+    if (tails[i] != nullptr) out[i].last_member_ts = tails[i]->ts;
   }
   return out;
 }
