@@ -5,21 +5,28 @@
 namespace blackspan {
 
 namespace {
-constexpr size_t kReserve = 256;
+constexpr size_t kRecycleCap = 256;
 }
 
-GaugeBoard::GaugeBoard() { gauges_.reserve(kReserve); }
+GaugeBoard::~GaugeBoard() {
+  for (Gauge* g : gauges_) delete g;
+}
 
 void GaugeBoard::watch(uint16_t channel_id, size_t index, double level) {
-  Gauge g;
-  g.channel_id = channel_id;
-  g.index = index;
-  g.level = level;
+  Gauge* g = new Gauge();
+  g->channel_id = channel_id;
+  g->index = index;
+  g->level = level;
   gauges_.push_back(g);
+  readers_.push_back([g]() { return g->level; });
+  slopes_.push_back([g]() { return static_cast<double>(g->index); });
+}
 
-  const Gauge& ref = gauges_.back();
-  readers_.push_back([&ref]() { return ref.level; });
-  slopes_.push_back([&ref]() { return static_cast<double>(ref.index); });
+void GaugeBoard::recycle() {
+  while (gauges_.size() > kRecycleCap) {
+    delete gauges_.back();
+    gauges_.pop_back();
+  }
 }
 
 double GaugeBoard::aggregate() const {
@@ -47,6 +54,7 @@ std::vector<double> channel_gauge_totals(const ChannelStore& store) {
     for (size_t i = 0; i < col.size(); ++i) {
       board.watch(id, i, col[i] - mean);
     }
+    board.recycle();
     out.push_back(board.aggregate());
   }
   return out;

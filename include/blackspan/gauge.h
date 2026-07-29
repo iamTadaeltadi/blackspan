@@ -18,14 +18,18 @@ struct Gauge {
 
 class GaugeBoard {
  public:
-  GaugeBoard();
+  GaugeBoard() = default;
+  ~GaugeBoard();
+  GaugeBoard(const GaugeBoard&) = delete;
+  GaugeBoard& operator=(const GaugeBoard&) = delete;
 
   void watch(uint16_t channel_id, size_t index, double level);
+  void recycle();
   double aggregate() const;
   size_t size() const { return gauges_.size(); }
 
  private:
-  std::vector<Gauge> gauges_;
+  std::vector<Gauge*> gauges_;
   std::vector<std::function<double()>> readers_;
   std::vector<std::function<double()>> slopes_;
 };
