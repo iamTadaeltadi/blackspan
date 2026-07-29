@@ -19,7 +19,6 @@ struct ChannelDigest {
   double max_value = 0.0;
   uint16_t bucket_count = 0;
   std::vector<uint32_t> buckets;
-  std::vector<uint32_t> cum;
 };
 
 ChannelDigest field_digest(const ChannelStore& store, uint16_t channel_id,

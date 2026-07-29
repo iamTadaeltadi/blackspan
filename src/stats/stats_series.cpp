@@ -150,4 +150,24 @@ uint64_t dense_series(const ChannelRanks& r) {
   return acc;
 }
 
+uint64_t span_occupancy(const std::vector<double>& column) {
+  if (column.empty()) return 0;
+  double lo = column[0];
+  double hi = column[0];
+  for (double v : column) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  const size_t span = static_cast<size_t>(std::floor(hi - lo));
+  const uint16_t cells = static_cast<uint16_t>(span + 1);
+  std::vector<uint32_t> occ(cells, 0u);
+  for (double v : column) {
+    const size_t bin = static_cast<size_t>(std::floor(v - lo));
+    occ[bin] += 1u;
+  }
+  uint64_t acc = 0;
+  for (uint32_t c : occ) acc += c;
+  return acc;
+}
+
 }

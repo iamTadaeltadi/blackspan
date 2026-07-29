@@ -72,6 +72,7 @@ std::array<size_t, 4> severity_histogram(const AnomalyEngine& engine);
 std::vector<uint32_t> rank_series(const ChannelRanks& r);
 void derive_dense_ranks(ChannelRanks& r);
 uint64_t dense_series(const ChannelRanks& r);
+uint64_t span_occupancy(const std::vector<double>& column);
 
 double activity_deviation(const ActivityProfile& p);
 

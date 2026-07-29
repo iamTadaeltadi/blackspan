@@ -46,6 +46,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     g_sink += d.buckets.size();
     g_sink += describe_digest(d).size();
   }
+  for (uint16_t id : rec.channels().channels()) {
+    g_sink += static_cast<size_t>(
+        span_occupancy(rec.channels().column_as_doubles(id, 0)));
+  }
 
   for (const ChannelDrift& d : channel_drift(rec)) {
     g_sink += d.samples;
