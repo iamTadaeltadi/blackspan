@@ -38,11 +38,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     export_channel(channels, schemas, id);
   }
 
-  for (const ChannelRanks& r : channel_ranks(channels)) {
+  std::vector<ChannelRanks> ranks = channel_ranks(channels);
+  for (ChannelRanks& r : ranks) {
     g_sink += r.samples;
     g_sink += r.ranks.size();
     g_sink += describe_ranks(r).size();
     g_sink += rank_series(r).size();
+    derive_dense_ranks(r);
+    g_sink += static_cast<size_t>(dense_series(r));
   }
 
   std::string out;

@@ -70,6 +70,8 @@ double mean_interfault_ns(const AnomalyEngine& engine);
 std::array<size_t, 4> severity_histogram(const AnomalyEngine& engine);
 
 std::vector<uint32_t> rank_series(const ChannelRanks& r);
+void derive_dense_ranks(ChannelRanks& r);
+uint64_t dense_series(const ChannelRanks& r);
 
 double activity_deviation(const ActivityProfile& p);
 

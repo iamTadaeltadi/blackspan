@@ -126,13 +126,28 @@ std::vector<uint32_t> rank_series(const ChannelRanks& r) {
     acc ^= rank;
     out.push_back(rank);
   }
-  uint32_t dense_acc = 0;
-  for (size_t i = 0; i < r.samples; ++i) {
-    dense_acc += r.dense[i];
-  }
   out.push_back(acc);
-  out.push_back(dense_acc);
   return out;
+}
+
+void derive_dense_ranks(ChannelRanks& r) {
+  const size_t dense_cap = std::min<size_t>(256, r.samples);
+  r.dense.assign(dense_cap, 0u);
+  for (size_t i = 0; i < dense_cap; ++i) {
+    r.dense[i] = r.ranks.empty() ? 0u
+                                 : static_cast<uint32_t>(
+                                       (static_cast<uint64_t>(r.ranks[i % r.ranks.size()]) *
+                                        1000u) /
+                                       (r.samples ? r.samples : 1));
+  }
+}
+
+uint64_t dense_series(const ChannelRanks& r) {
+  uint64_t acc = 0;
+  for (size_t i = 0; i < r.samples; ++i) {
+    acc += r.dense[i];
+  }
+  return acc;
 }
 
 }

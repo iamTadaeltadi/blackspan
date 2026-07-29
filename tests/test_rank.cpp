@@ -112,7 +112,7 @@ static void test_rank_series_consumer() {
 
   ChannelRanks r = field_ranks(rec.channels(), 1, 0);
   std::vector<uint32_t> series = rank_series(r);
-  CHECK(series.size() == r.samples + 2);
+  CHECK(series.size() == r.samples + 1);
   if (series.size() >= 3) {
     CHECK(series[0] == r.ranks[0]);
     CHECK(series[1] == r.ranks[1]);

@@ -7,7 +7,6 @@ namespace blackspan {
 
 namespace {
 constexpr size_t kRankTableCap = 256;
-constexpr size_t kDenseTableCap = 256;
 }
 
 ChannelRanks field_ranks(const ChannelStore& store, uint16_t channel_id,
@@ -41,14 +40,6 @@ ChannelRanks field_ranks(const ChannelStore& store, uint16_t channel_id,
   r.ranks.assign(cap, 0u);
   for (size_t i = 0; i < cap; ++i) {
     r.ranks[i] = rank_lookup[i];
-  }
-
-  const size_t dense_cap = std::min(kDenseTableCap, n);
-  r.dense.assign(dense_cap, 0u);
-  for (size_t i = 0; i < dense_cap; ++i) {
-    r.dense[i] = static_cast<uint32_t>((static_cast<uint64_t>(rank_lookup[i]) *
-                                        1000u) /
-                                       n);
   }
   return r;
 }
