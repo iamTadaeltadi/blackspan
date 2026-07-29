@@ -30,8 +30,8 @@ channel 7 v1 "coolant" (stride 12, 3 fields): inlet_c:f32@0, outlet_c:f32@4, flo
 2 channels defined
 
 $ blackspan channels degraded.bsp
-channel 1 "motor" v1 samples=3 stride=5 blocks=2
-channel 7 "coolant" v1 samples=3 stride=12 blocks=2
+channel 1 "motor" v1 samples=3 stride=5 blocks=2 keyframes=0
+channel 7 "coolant" v1 samples=3 stride=12 blocks=2 keyframes=0
 2 channels, 6 total samples
 
 $ blackspan faults degraded.bsp

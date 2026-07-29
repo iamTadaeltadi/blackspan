@@ -30,8 +30,8 @@ channel 2 v1 "bus" (stride 8, 2 fields): volts:f32@0, fault_bits:u32@4
 2 channels defined
 
 $ blackspan channels nominal.bsp
-channel 1 "motor" v1 samples=6 stride=5 blocks=3
-channel 2 "bus" v1 samples=3 stride=8 blocks=2
+channel 1 "motor" v1 samples=6 stride=5 blocks=3 keyframes=0
+channel 2 "bus" v1 samples=3 stride=8 blocks=2 keyframes=0
 2 channels, 9 total samples
 
 $ blackspan faults nominal.bsp
