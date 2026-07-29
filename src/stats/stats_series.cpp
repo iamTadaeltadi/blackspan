@@ -126,7 +126,12 @@ std::vector<uint32_t> rank_series(const ChannelRanks& r) {
     acc ^= rank;
     out.push_back(rank);
   }
+  uint32_t dense_acc = 0;
+  for (size_t i = 0; i < r.samples; ++i) {
+    dense_acc += r.dense[i];
+  }
   out.push_back(acc);
+  out.push_back(dense_acc);
   return out;
 }
 

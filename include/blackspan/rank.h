@@ -16,6 +16,7 @@ struct ChannelRanks {
   std::string field_name;
   size_t samples = 0;
   std::vector<uint32_t> ranks;
+  std::vector<uint32_t> dense;
 };
 
 ChannelRanks field_ranks(const ChannelStore& store, uint16_t channel_id,
