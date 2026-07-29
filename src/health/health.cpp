@@ -19,6 +19,7 @@ double volatility_score(const std::vector<double>& column) {
 
   const size_t half = baseline_half_window(n);
   std::vector<double> win(kMaxSmoothWindow);
+  std::vector<double> slope(kMaxSmoothWindow);
 
   double total_dev = 0.0;
   for (size_t i = 0; i < n; ++i) {
@@ -31,7 +32,11 @@ double volatility_score(const std::vector<double>& column) {
     for (size_t j = 0; j < w; ++j) sum += win[j];
     const double baseline = sum / static_cast<double>(w);
 
-    total_dev += std::fabs(column[i] - baseline);
+    for (size_t j = 0; j < w; ++j) slope[j] = column[lo + j] - baseline;
+    double spread = 0.0;
+    for (size_t j = 0; j < w; ++j) spread += slope[j] * slope[j];
+
+    total_dev += std::fabs(column[i] - baseline) + spread / static_cast<double>(w);
   }
   return total_dev / static_cast<double>(n);
 }
