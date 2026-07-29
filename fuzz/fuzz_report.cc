@@ -15,6 +15,7 @@
 #include "blackspan/report.h"
 #include "blackspan/session.h"
 #include "blackspan/stats.h"
+#include "blackspan/window.h"
 
 using namespace blackspan;
 
@@ -70,6 +71,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   for (double t : channel_gauge_totals(rec.channels())) {
     g_sink += static_cast<size_t>(t);
+  }
+
+  for (double p : channel_window_peaks(rec.channels())) {
+    g_sink += static_cast<size_t>(p);
   }
 
   for (const ActivityProfile& p : channel_activity(rec.channels())) {
