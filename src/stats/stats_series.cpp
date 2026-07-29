@@ -150,6 +150,25 @@ uint64_t dense_series(const ChannelRanks& r) {
   return acc;
 }
 
+double smoothness_index(const std::vector<double>& col) {
+  const size_t n = col.size();
+  if (n < 2) return 0.0;
+  const size_t half = n / 8;
+  const size_t kCap = 64;
+  std::vector<double> buf(kCap);
+  double acc = 0.0;
+  for (size_t i = 0; i < n; ++i) {
+    const size_t lo = i >= half ? i - half : 0;
+    const size_t hi = (i + half < n) ? i + half : n - 1;
+    const size_t w = hi - lo + 1;
+    for (size_t j = 0; j < w; ++j) buf[j] = col[lo + j] - col[i];
+    double s = 0.0;
+    for (size_t j = 0; j < w; ++j) s += buf[j] * buf[j];
+    acc += s / static_cast<double>(w);
+  }
+  return acc / static_cast<double>(n);
+}
+
 uint64_t mover_tail(const std::vector<double>& col) {
   const size_t n = col.size();
   if (n < 2) return 0;

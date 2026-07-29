@@ -10,6 +10,7 @@
 #include "blackspan/pipeline.h"
 #include "blackspan/schema.h"
 #include "blackspan/session.h"
+#include "blackspan/stats.h"
 
 using namespace blackspan;
 
@@ -84,6 +85,9 @@ void walk_health(const ChannelStore& channels) {
     g_sink += f.samples;
     g_sink += describe_health(f).size();
     g_sink += static_cast<size_t>(f.flagged);
+  }
+  for (uint16_t id : channels.channels()) {
+    g_sink += static_cast<size_t>(smoothness_index(channels.column_as_doubles(id, 0)));
   }
 }
 

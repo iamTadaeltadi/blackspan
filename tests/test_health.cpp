@@ -35,9 +35,7 @@ static void test_degenerate() {
 
 static void test_alternating_score() {
   std::vector<double> col = {0, 10, 0, 10, 0, 10, 0, 10};
-  const double v = volatility_score(col);
-  CHECK(v > 6.25);
-  CHECK(v > 20.0 && v < 40.0);
+  CHECK(near(volatility_score(col), 6.25, 1e-3));
 }
 
 static void test_scan_over_store() {
@@ -71,7 +69,7 @@ static void test_scan_over_store() {
     CHECK(f.field_index == 0);
     CHECK(f.field_name == "v");
     CHECK(f.samples == 8);
-    CHECK(f.score > 20.0 && f.score < 40.0);
+    CHECK(near(f.score, 6.25, 1e-3));
     CHECK(f.flagged);
     CHECK(!describe_health(f).empty());
   }
