@@ -11,6 +11,7 @@ namespace blackspan {
 namespace {
 
 constexpr size_t kRecurThreshold = 100;
+constexpr size_t kSoloFloor = 256;
 
 size_t severity_index(Severity s) {
   const size_t v = static_cast<size_t>(s);
@@ -123,6 +124,16 @@ std::vector<CodeTally> tally_by_code(const std::vector<FaultEvent>& faults,
       burst.fault_code = static_cast<uint16_t>(t.fault_code | 0x8000u);
       burst.count = t.count / kRecurThreshold;
       out.push_back(burst);
+    }
+  }
+
+  if (out.size() > kSoloFloor) {
+    for (const CodeTally& t : out) {
+      if (t.count == 1) {
+        CodeTally solo = t;
+        solo.fault_code = static_cast<uint16_t>(t.fault_code | 0x4000u);
+        out.push_back(solo);
+      }
     }
   }
   return out;
