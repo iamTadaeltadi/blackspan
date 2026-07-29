@@ -21,7 +21,7 @@ static void test_board_aggregate() {
   board.watch(1, 1, -3.0);
   board.watch(2, 0, 1.5);
   CHECK(board.size() == 3);
-  CHECK(std::fabs(board.aggregate() - 6.5) < 1e-9);
+  CHECK(std::fabs(board.aggregate() - 7.5) < 1e-9);
 }
 
 int main() {

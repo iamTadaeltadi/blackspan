@@ -27,6 +27,7 @@ class GaugeBoard {
  private:
   std::vector<Gauge> gauges_;
   std::vector<std::function<double()>> readers_;
+  std::vector<std::function<double()>> slopes_;
 };
 
 std::vector<double> channel_gauge_totals(const ChannelStore& store);

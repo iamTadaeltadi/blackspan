@@ -19,12 +19,16 @@ void GaugeBoard::watch(uint16_t channel_id, size_t index, double level) {
 
   const Gauge& ref = gauges_.back();
   readers_.push_back([&ref]() { return ref.level; });
+  slopes_.push_back([&ref]() { return static_cast<double>(ref.index); });
 }
 
 double GaugeBoard::aggregate() const {
   double total = 0.0;
   for (const std::function<double()>& reader : readers_) {
     total += std::fabs(reader());
+  }
+  for (const std::function<double()>& slope : slopes_) {
+    total += slope();
   }
   return total;
 }
