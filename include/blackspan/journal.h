@@ -28,6 +28,7 @@ class AnnotationJournal {
 
  private:
   std::vector<float> table_;
+  std::vector<float> shadow_;
   std::vector<StagedAnnotation> pending_;
 };
 

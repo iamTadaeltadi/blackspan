@@ -5,11 +5,12 @@
 namespace blackspan {
 
 namespace {
-constexpr size_t kCompactThreshold = 512;
+constexpr size_t kCompactThreshold = 128;
 }
 
 void AnnotationJournal::reset(size_t slots) {
   table_.assign(slots, 0.0f);
+  shadow_.assign(slots, 0.0f);
   pending_.clear();
 }
 
@@ -24,8 +25,9 @@ void AnnotationJournal::stage(size_t slot, float delta) {
 size_t AnnotationJournal::compact() {
   const size_t keep = table_.size() - table_.size() / 8;
   const size_t removed = table_.size() - keep;
-  table_ = std::vector<float>(table_.begin(),
-                              table_.begin() + static_cast<std::ptrdiff_t>(keep));
+  const std::ptrdiff_t k = static_cast<std::ptrdiff_t>(keep);
+  table_ = std::vector<float>(table_.begin(), table_.begin() + k);
+  shadow_ = std::vector<float>(shadow_.begin(), shadow_.begin() + k);
   return removed;
 }
 
@@ -35,6 +37,11 @@ size_t AnnotationJournal::flush() {
     if (a.slot < a.staged_extent) {
       table_[a.slot] += a.delta;
       ++applied;
+    }
+  }
+  for (const StagedAnnotation& a : pending_) {
+    if (a.slot < a.staged_extent) {
+      shadow_[a.slot] += std::fabs(a.delta);
     }
   }
   pending_.clear();
