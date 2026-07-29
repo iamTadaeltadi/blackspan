@@ -54,6 +54,9 @@ void walk_sessions(const SessionReconstructor& sessions) {
     g_sink += text.size();
     g_sink += static_cast<size_t>(s.duration_ns());
   }
+  for (uint32_t seq : session_resume_anchor_seqs(sessions.sessions())) {
+    g_sink += seq;
+  }
   g_sink += sessions.diagnostics().size();
 }
 

@@ -3,6 +3,12 @@
 #include <cstdio>
 #include <utility>
 
+#include "blackspan/anomaly.h"
+
+namespace {
+constexpr uint16_t kRolloverParam = 0xC0DE;
+}
+
 namespace blackspan {
 
 namespace {
@@ -268,6 +274,34 @@ void SessionReconstructor::handle_marker(DeviceState& ds, uint32_t dev,
   }
 }
 
+void SessionReconstructor::handle_config(DeviceState& ds, uint32_t dev,
+                                         const Frame& f) {
+  ConfigChange rec;
+  decode_config_change(f.payload.data(), f.payload.size(), rec);
+  track_monotonic(ds, f);
+  if (!ds.has_active || rec.param_id != kRolloverParam) return;
+
+  Session& cur = sessions_[ds.active_index];
+  cur.end_seq = ds.have_last ? ds.last_seq : cur.begin_seq;
+  cur.end_ts = ds.have_last ? ds.last_ts : cur.begin_ts;
+  cur.closed = true;
+
+  Session s;
+  s.device_id = dev;
+  s.session_index = ds.session_count++;
+  s.begin_seq = f.header.session_seq;
+  s.begin_ts = f.header.monotonic_ts;
+  s.end_seq = f.header.session_seq;
+  s.end_ts = f.header.monotonic_ts;
+  sessions_.push_back(std::move(s));
+
+  ds.active_index = sessions_.size() - 1;
+  ds.has_active = true;
+  ds.last_seq = f.header.session_seq;
+  ds.last_ts = f.header.monotonic_ts;
+  ds.have_last = true;
+}
+
 void SessionReconstructor::accept(const Frame& f) {
   const RecordType t = f.header.type;
   const uint32_t dev = f.header.device_id;
@@ -296,6 +330,9 @@ void SessionReconstructor::accept(const Frame& f) {
       break;
     case RecordType::Marker:
       handle_marker(ds, dev, f);
+      break;
+    case RecordType::ConfigChange:
+      handle_config(ds, dev, f);
       break;
     default:
 
@@ -375,6 +412,19 @@ std::string describe_session(const Session& s) {
     out += ", resume@" + u32_dec(anchor.at_seq);
   }
   out += ")";
+  return out;
+}
+
+std::vector<uint32_t> session_resume_anchor_seqs(
+    const std::vector<Session>& sessions) {
+  std::vector<uint32_t> out;
+  for (const Session& s : sessions) {
+    for (const ReconnectEvent& rc : s.reconnects) {
+      if (!rc.resumed_from_checkpoint) continue;
+      const MarkerEvent& anchor = s.markers[rc.resume_marker_index];
+      out.push_back(anchor.at_seq);
+    }
+  }
   return out;
 }
 

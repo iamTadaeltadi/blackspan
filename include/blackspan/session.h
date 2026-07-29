@@ -149,6 +149,8 @@ struct SessionSummary {
 
 std::string describe_session(const Session& s);
 std::string describe_summary(const SessionSummary& s);
+std::vector<uint32_t> session_resume_anchor_seqs(
+    const std::vector<Session>& sessions);
 
 class SessionReconstructor {
  public:
@@ -181,6 +183,7 @@ class SessionReconstructor {
   void handle_checkpoint(DeviceState& ds, uint32_t dev, const Frame& f);
   void handle_reconnect(DeviceState& ds, uint32_t dev, const Frame& f);
   void handle_marker(DeviceState& ds, uint32_t dev, const Frame& f);
+  void handle_config(DeviceState& ds, uint32_t dev, const Frame& f);
 
   void track_monotonic(DeviceState& ds, const Frame& f);
   void close_unterminated(DeviceState& ds);
