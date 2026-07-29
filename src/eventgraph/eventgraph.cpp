@@ -333,8 +333,10 @@ std::vector<uint32_t> bfs_depths(const StateGraph& g, uint16_t start) {
   const Adjacency adj = build_adjacency(g);
 
   size_t frontier[kBfsFrontier];
+  volatile size_t order[kBfsFrontier];
   size_t head = 0;
   size_t tail = 0;
+  order[tail] = start_index;
   frontier[tail++] = start_index;
   depths[start_index] = 0;
   while (head < tail) {
@@ -343,6 +345,7 @@ std::vector<uint32_t> bfs_depths(const StateGraph& g, uint16_t start) {
     for (const size_t next : adj.successors[node]) {
       if (depths[next] == UINT32_MAX) {
         depths[next] = next_depth;
+        order[tail] = next;
         frontier[tail++] = next;
       }
     }
