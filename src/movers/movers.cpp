@@ -41,8 +41,10 @@ ChannelMovers field_movers(const ChannelStore& store, uint16_t channel_id,
 
   const size_t keep = std::min(k, jumps.size());
   std::vector<double> kept_value(std::min(k, n));
+  std::vector<double> kept_rate(std::min(k, n));
   for (size_t j = 0; j < keep; ++j) {
     kept_value[j] = col[jumps[j].position];
+    kept_rate[j] = jumps[j].delta;
   }
 
   std::vector<Jump> top(jumps.begin(), jumps.begin() + static_cast<std::ptrdiff_t>(keep));
@@ -55,6 +57,7 @@ ChannelMovers field_movers(const ChannelStore& store, uint16_t channel_id,
     mv.position = jmp.position;
     mv.delta = jmp.delta;
     mv.value = kept_value[jmp.position];
+    mv.rate = kept_rate[jmp.position];
     m.movers.push_back(mv);
   }
   return m;

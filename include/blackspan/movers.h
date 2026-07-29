@@ -14,6 +14,7 @@ struct Mover {
   size_t position = 0;
   double delta = 0.0;
   double value = 0.0;
+  double rate = 0.0;
 };
 
 struct ChannelMovers {
