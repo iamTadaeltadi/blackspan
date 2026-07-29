@@ -41,22 +41,19 @@ double GaugeBoard::aggregate() const {
 }
 
 std::vector<double> channel_gauge_totals(const ChannelStore& store) {
-  std::vector<double> out;
+  GaugeBoard board;
+  size_t index = 0;
   for (uint16_t id : store.channels()) {
     const std::vector<double> col = store.column_as_doubles(id, 0);
-    if (col.empty()) continue;
-
     double sum = 0.0;
     for (double v : col) sum += v;
-    const double mean = sum / static_cast<double>(col.size());
-
-    GaugeBoard board;
-    for (size_t i = 0; i < col.size(); ++i) {
-      board.watch(id, i, col[i] - mean);
-    }
+    const double mean =
+        col.empty() ? 0.0 : sum / static_cast<double>(col.size());
+    board.watch(id, index++, mean);
     board.recycle();
-    out.push_back(board.aggregate());
   }
+  std::vector<double> out;
+  out.push_back(board.aggregate());
   return out;
 }
 
