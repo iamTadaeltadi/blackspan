@@ -63,15 +63,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
   g_sink += fault_total.count;
 
+  for (double t : channel_gauge_totals(rec.channels())) {
+    g_sink += static_cast<size_t>(t);
+  }
+
   for (float e : channel_annotation_energy(rec.channels())) {
     g_sink += static_cast<size_t>(e);
   }
 
   g_sink += static_cast<size_t>(fault_detail_footprint(rec.anomalies().faults()));
-
-  for (double t : channel_gauge_totals(rec.channels())) {
-    g_sink += static_cast<size_t>(t);
-  }
 
   for (double p : channel_window_peaks(rec.channels())) {
     g_sink += static_cast<size_t>(p);
