@@ -13,6 +13,7 @@
 #include "blackspan/pipeline.h"
 #include "blackspan/profile.h"
 #include "blackspan/report.h"
+#include "blackspan/report_graph.h"
 #include "blackspan/session.h"
 #include "blackspan/stats.h"
 #include "blackspan/window.h"
@@ -60,6 +61,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   if (!sg.nodes.empty()) {
     g_sink += graph_eccentricity(sg, sg.nodes.front().state);
   }
+  g_sink += state_index_extent(rec.anomalies());
 
   CodeTally fault_total;
   for (const CodeTally& t : tally_by_code(rec.anomalies().faults(), fault_total)) {

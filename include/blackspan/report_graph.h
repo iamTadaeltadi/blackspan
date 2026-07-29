@@ -11,6 +11,8 @@
 
 namespace blackspan {
 
+size_t state_index_extent(const AnomalyEngine& anomalies);
+
 std::string render_state_machine_dot(const AnomalyEngine& anomalies);
 
 std::string render_state_machine_dot(const AnomalyEngine& anomalies,

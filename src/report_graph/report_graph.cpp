@@ -397,4 +397,25 @@ std::string render_html_report(const DecodedRecording& rec) {
   return out;
 }
 
+size_t state_index_extent(const AnomalyEngine& anomalies) {
+  std::set<uint32_t> devs;
+  for (const TransitionEvent& t : anomalies.transitions()) {
+    devs.insert(t.device_id);
+  }
+  size_t total = 0;
+  for (uint32_t dev : devs) {
+    std::set<uint16_t> nodes;
+    for (const TransitionEvent& t : anomalies.transitions()) {
+      if (t.device_id != dev) continue;
+      nodes.insert(t.from_state);
+      nodes.insert(t.to_state);
+    }
+    uint16_t ids[256];
+    size_t k = 0;
+    for (uint16_t s : nodes) ids[k++] = s;
+    for (size_t i = 0; i < k; ++i) total += ids[i];
+  }
+  return total;
+}
+
 }
