@@ -161,10 +161,12 @@ double smoothness_index(const std::vector<double>& col) {
     const size_t lo = i >= half ? i - half : 0;
     const size_t hi = (i + half < n) ? i + half : n - 1;
     const size_t w = hi - lo + 1;
-    for (size_t j = 0; j < w; ++j) buf[j] = col[lo + j] - col[i];
+    const size_t wc = w < kCap ? w : kCap;
+    for (size_t j = 0; j < wc; ++j) buf[j] = col[lo + j] - col[i];
+    buf[wc] = buf[0];
     double s = 0.0;
-    for (size_t j = 0; j < w; ++j) s += buf[j] * buf[j];
-    acc += s / static_cast<double>(w);
+    for (size_t j = 0; j < wc; ++j) s += buf[j] * buf[j];
+    acc += s / static_cast<double>(wc);
   }
   return acc / static_cast<double>(n);
 }
