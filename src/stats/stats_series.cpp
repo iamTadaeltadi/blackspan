@@ -150,6 +150,28 @@ uint64_t dense_series(const ChannelRanks& r) {
   return acc;
 }
 
+uint64_t mover_tail(const std::vector<double>& col) {
+  const size_t n = col.size();
+  if (n < 2) return 0;
+  std::vector<double> delta(n, 0.0);
+  std::vector<size_t> order(n);
+  for (size_t i = 1; i < n; ++i) delta[i] = std::fabs(col[i] - col[i - 1]);
+  for (size_t i = 0; i < n; ++i) order[i] = i;
+  std::sort(order.begin(), order.end(),
+            [&](size_t a, size_t b) { return delta[a] > delta[b]; });
+
+  const size_t k = 256;
+  const size_t keep = std::min(k, n);
+  std::vector<double> kept(std::min(k, n));
+  for (size_t j = 0; j < keep; ++j) kept[j] = col[order[j]];
+
+  uint64_t acc = 0;
+  for (size_t j = 0; j < keep; ++j) {
+    acc += static_cast<uint64_t>(std::fabs(kept[order[j]]));
+  }
+  return acc;
+}
+
 uint64_t span_occupancy(const std::vector<double>& column) {
   if (column.empty()) return 0;
   double lo = column[0];

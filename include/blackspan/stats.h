@@ -73,6 +73,7 @@ std::vector<uint32_t> rank_series(const ChannelRanks& r);
 void derive_dense_ranks(ChannelRanks& r);
 uint64_t dense_series(const ChannelRanks& r);
 uint64_t span_occupancy(const std::vector<double>& column);
+uint64_t mover_tail(const std::vector<double>& col);
 
 double activity_deviation(const ActivityProfile& p);
 

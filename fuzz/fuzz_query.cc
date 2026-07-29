@@ -7,6 +7,7 @@
 #include "blackspan/pipeline.h"
 #include "blackspan/query.h"
 #include "blackspan/session.h"
+#include "blackspan/stats.h"
 #include "fuzz_split.h"
 
 using namespace blackspan;
@@ -44,6 +45,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     g_sink += m.samples;
     g_sink += m.movers.size();
     g_sink += describe_movers(m).size();
+  }
+  for (uint16_t id : rec.channels().channels()) {
+    g_sink += static_cast<size_t>(
+        mover_tail(rec.channels().column_as_doubles(id, 0)));
   }
 
   std::vector<DetectRule> rules;
